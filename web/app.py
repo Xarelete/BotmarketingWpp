@@ -421,7 +421,6 @@ def create_app() -> Flask:
     @app.route("/api/broadcast/start", methods=["POST"])
     @auth_required
     def api_broadcast_start():
-        import asyncio
         from core.direct_broadcast import start_direct_broadcast
 
         data = request.get_json(silent=True) or {}
@@ -429,7 +428,7 @@ def create_app() -> Flask:
         message_template = data.get("message_template", "").strip()
         image_url = data.get("image_url", "").strip() or None
         min_delay = int(data.get("min_delay", 15))
-        max_delay = int(data.get("max_delay", 45))
+        max_delay = int(data.get("max_delay", 40))
         vary_text = bool(data.get("vary_text", True))
 
         if not lead_ids:
@@ -437,16 +436,14 @@ def create_app() -> Flask:
         if not message_template:
             return jsonify({"error": "Texto da mensagem é obrigatório."}), 400
 
-        # Roda a função assíncrona na thread do Flask
-        success = asyncio.run(
-            start_direct_broadcast(
-                lead_ids=lead_ids,
-                message_template=message_template,
-                image_url=image_url,
-                min_delay=min_delay,
-                max_delay=max_delay,
-                vary_text=vary_text,
-            )
+        # Inicia a fila em thread separada segura
+        success = start_direct_broadcast(
+            lead_ids=lead_ids,
+            message_template=message_template,
+            image_url=image_url,
+            min_delay=min_delay,
+            max_delay=max_delay,
+            vary_text=vary_text,
         )
 
         if success:

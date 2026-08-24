@@ -9,6 +9,52 @@ let broadcastPollingInterval = null;
 let currentUploadedImageUrl = null;
 
 // ═══════════════════════════════════════════
+// FORMATAÇÃO E MÁSCARA DE TELEFONE
+// ═══════════════════════════════════════════
+
+function formatPhoneDisplay(raw) {
+    if (!raw) return '—';
+    const digits = String(raw).replace(/\D/g, '');
+    if (digits.startsWith('55') && digits.length === 13) {
+        return `+55 (${digits.substring(2, 4)}) ${digits.substring(4, 9)}-${digits.substring(9)}`;
+    } else if (digits.startsWith('55') && digits.length === 12) {
+        return `+55 (${digits.substring(2, 4)}) ${digits.substring(4, 8)}-${digits.substring(8)}`;
+    } else if (digits.length === 11) {
+        return `(${digits.substring(0, 2)}) ${digits.substring(2, 7)}-${digits.substring(7)}`;
+    } else if (digits.length === 10) {
+        return `(${digits.substring(0, 2)}) ${digits.substring(2, 6)}-${digits.substring(6)}`;
+    }
+    return raw;
+}
+
+function applyPhoneMask(input) {
+    input.addEventListener('input', (e) => {
+        let val = e.target.value.replace(/\D/g, '');
+        if (val.length > 13) val = val.substring(0, 13);
+
+        if (val.startsWith('55') && val.length > 2) {
+            const ddd = val.substring(2, 4);
+            const rest = val.substring(4);
+            if (rest.length > 5) {
+                e.target.value = `+55 (${ddd}) ${rest.substring(0, 5)}-${rest.substring(5, 9)}`;
+            } else if (rest.length > 0) {
+                e.target.value = `+55 (${ddd}) ${rest}`;
+            } else {
+                e.target.value = `+55 (${ddd}`;
+            }
+        } else if (val.length > 10) {
+            e.target.value = `(${val.substring(0, 2)}) ${val.substring(2, 7)}-${val.substring(7, 11)}`;
+        } else if (val.length > 6) {
+            e.target.value = `(${val.substring(0, 2)}) ${val.substring(2, 6)}-${val.substring(6, 10)}`;
+        } else if (val.length > 2) {
+            e.target.value = `(${val.substring(0, 2)}) ${val.substring(2)}`;
+        } else if (val.length > 0) {
+            e.target.value = `(${val}`;
+        }
+    });
+}
+
+// ═══════════════════════════════════════════
 // API HELPERS
 // ═══════════════════════════════════════════
 
@@ -223,7 +269,6 @@ async function fetchAllLeadsForBroadcast() {
         const data = await api('/api/leads?limit=500&status=active');
         allLeadsCache = data.leads || [];
 
-        // Extrai tags únicas para o filtro
         const tagSet = new Set();
         allLeadsCache.forEach(l => (l.tags || []).forEach(t => tagSet.add(t)));
 
@@ -276,7 +321,7 @@ function renderBroadcastLeadsTable() {
                                 <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleLeadSelection('${l.id}', this.checked)">
                             </td>
                             <td><strong>${l.name || 'Sem nome'}</strong></td>
-                            <td style="font-family:monospace;font-size:0.8rem">${l.phone}</td>
+                            <td style="font-family:monospace;font-size:0.85rem;color:var(--accent)">${formatPhoneDisplay(l.phone)}</td>
                             <td>${(l.tags || []).map(t => `<span class="tag">${t}</span>`).join(' ') || '—'}</td>
                             <td>
                                 ${l.paused ? '<span class="badge badge-paused">pausado</span>' : '<span class="badge badge-active">ativo</span>'}
@@ -350,11 +395,10 @@ function updateWhatsappPreview() {
     const rawText = document.getElementById('bc-message-text')?.value || '';
     const imageUrl = currentUploadedImageUrl || document.getElementById('bc-image-url')?.value || '';
 
-    // Substitui spintax e tags para a prévia
     let previewText = rawText
         .replace(/\{primeiro_nome\}/gi, 'João')
         .replace(/\{nome\}/gi, 'João Silva')
-        .replace(/\{telefone\}/gi, '+55 11 99999-8888')
+        .replace(/\{telefone\}/gi, '+55 (12) 99181-0835')
         .replace(/\{([^{}]+)\}/g, (match, choices) => choices.split('|')[0]);
 
     if (!previewText.trim()) {
@@ -364,7 +408,6 @@ function updateWhatsappPreview() {
     const previewContainer = document.getElementById('preview-message-text');
     if (previewContainer) previewContainer.textContent = previewText;
 
-    // Imagem
     const imgContainer = document.getElementById('preview-img-container');
     const imgTag = document.getElementById('preview-img-tag');
     if (imageUrl) {
@@ -374,7 +417,6 @@ function updateWhatsappPreview() {
         imgContainer.classList.add('hidden');
     }
 
-    // Horário atual no balão
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const timeEl = document.getElementById('preview-time');
@@ -384,6 +426,14 @@ function updateWhatsappPreview() {
 async function handleImageSelected(e) {
     const file = e.target.files[0];
     if (!file) return;
+
+    // Preview imediato via FileReader
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        currentUploadedImageUrl = event.target.result;
+        updateWhatsappPreview();
+    };
+    reader.readAsDataURL(file);
 
     const formData = new FormData();
     formData.append('image', file);
@@ -507,7 +557,7 @@ function updateBroadcastProgressUI(status) {
         subtitleEl.textContent = `Número: ${status.current_lead_phone || ''} | Fila em andamento com pausas naturais...`;
     } else {
         titleEl.textContent = `🏁 Disparo Finalizado (${status.success} enviados com sucesso, ${status.failed} falhas)`;
-        subtitleEl.textContent = `Todos os contatos foram processados.`;
+        subtitleEl.textContent = `Todos os ${total} contatos foram processados.`;
     }
 }
 
@@ -566,7 +616,7 @@ async function loadLeads() {
                     ${leads.map(l => `
                         <tr>
                             <td><strong>${l.name || 'Sem nome'}</strong></td>
-                            <td style="font-family:monospace;font-size:0.8rem">${l.phone}</td>
+                            <td style="font-family:monospace;font-size:0.85rem;color:var(--accent)">${formatPhoneDisplay(l.phone)}</td>
                             <td>${(l.tags || []).map(t => `<span class="tag">${t}</span>`).join(' ') || '—'}</td>
                             <td>D${l.remarketing_day || 0}${l.next_send_date ? ` → ${l.next_send_date}` : ''}</td>
                             <td>
@@ -600,7 +650,7 @@ function showAddLeadModal() {
             <div class="form-row">
                 <div class="form-group">
                     <label>Telefone *</label>
-                    <input type="text" id="add-phone" placeholder="5511999887766" required>
+                    <input type="text" id="add-phone" placeholder="(12) 99988-7766" required>
                 </div>
                 <div class="form-group">
                     <label>Nome do Cliente</label>
@@ -618,6 +668,11 @@ function showAddLeadModal() {
             <button type="submit" class="btn btn-primary btn-full">Salvar Lead no Bolsão</button>
         </form>
     `);
+
+    setTimeout(() => {
+        const phoneInput = document.getElementById('add-phone');
+        if (phoneInput) applyPhoneMask(phoneInput);
+    }, 100);
 }
 
 async function addLead(e) {
@@ -1086,7 +1141,7 @@ async function loadControlPage() {
                         ${pausedLeads.map(l => `
                             <tr>
                                 <td>${l.name || 'Sem nome'}</td>
-                                <td style="font-family:monospace;font-size:0.8rem">${l.phone}</td>
+                                <td style="font-family:monospace;font-size:0.85rem;color:var(--accent)">${formatPhoneDisplay(l.phone)}</td>
                                 <td><button class="btn btn-success btn-xs" onclick="resumeLead('${l.id}')">▶️ Retomar</button></td>
                             </tr>
                         `).join('')}
@@ -1133,7 +1188,7 @@ async function loadDispatchLog() {
                         <tr>
                             <td style="white-space:nowrap">${formatDateTime(l.sent_at)}</td>
                             <td><strong>${l.lead_name || '—'}</strong></td>
-                            <td style="font-family:monospace;font-size:0.8rem">${l.lead_phone}</td>
+                            <td style="font-family:monospace;font-size:0.85rem;color:var(--accent)">${formatPhoneDisplay(l.lead_phone)}</td>
                             <td><span class="tag">${l.campaign_id}</span></td>
                             <td>D${l.remarketing_day || 0}</td>
                             <td><span class="badge badge-${l.status}">${l.status}</span></td>
