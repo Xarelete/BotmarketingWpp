@@ -52,19 +52,16 @@ def format_phone_display(phone: str) -> str:
 
 def _get_image_payload(image_source: str) -> Tuple[Optional[str], str]:
     """
-    Retorna a própria URL pública da imagem e tenta inferir o mimetype.
-    A Evolution API v1/v2 trabalha de forma 100% nativa e segura baixando 
-    a URL pública diretamente, evitando silent drops que ocorrem com base64 puros longos.
+    Tenta retornar a imagem em Base64 puro para evitar problemas de rede
+    (ex: Evolution API não conseguir baixar imagens do localhost do usuário).
     """
     if not image_source:
         return None, "image/jpeg"
 
     image_source = image_source.strip()
     
-    # Se já for data URI, a API Evolution não aceita bem no sendMedia ou falha no baileys.
-    # Mas como vamos reverter o frontend para mandar URL, isso não deve ocorrer.
+    # 1. Se já for data URI, extrai o puro
     if image_source.startswith("data:image"):
-        logger.warning("Recebido data URI base64, o que não é ideal para Evolution. Tentando extrair puro...")
         try:
             header, b64data = image_source.split(",", 1)
             mime_match = re.search(r'data:(image/\w+);base64', header)
@@ -73,7 +70,23 @@ def _get_image_payload(image_source: str) -> Tuple[Optional[str], str]:
         except Exception:
             pass
 
-    # Inferindo mimetype pela extensão
+    # 2. Se é arquivo local (uploads do painel)
+    import os, base64
+    if "/static/uploads/" in image_source:
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        filename = image_source.split("/static/uploads/")[-1]
+        local_path = os.path.join(base_dir, "web", "static", "uploads", filename)
+        if os.path.exists(local_path):
+            try:
+                with open(local_path, "rb") as f:
+                    encoded = base64.b64encode(f.read()).decode("utf-8")
+                ext = os.path.splitext(filename)[1].lower().replace(".", "")
+                mimetype = "image/png" if ext == "png" else "image/webp" if ext == "webp" else "image/jpeg"
+                return encoded, mimetype
+            except Exception as e:
+                logger.error("Erro ao converter local_path para base64: %s", e)
+
+    # 3. Fallback: Inferir extensão e retornar a própria URL
     ext = image_source.split(".")[-1].lower() if "." in image_source[-6:] else "jpeg"
     mimetype = f"image/{ext}" if ext in ["png", "webp", "jpeg", "jpg"] else "image/jpeg"
     if ext == "jpg":
