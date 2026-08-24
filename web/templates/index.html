@@ -6,7 +6,7 @@
     <title>Bot Remarketing Imobiliário — Painel Admin</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
@@ -15,12 +15,16 @@
     <!-- ═══════════════════════════════════════ -->
     <div id="login-screen" class="login-screen">
         <div class="login-card">
+            <div class="login-badge">IMOB SMART BOT</div>
             <div class="login-logo">🏠</div>
-            <h1>Bot Remarketing</h1>
-            <p>Painel Administrativo</p>
+            <h1>Remarketing IMOB</h1>
+            <p>Painel de Gestão & Disparos Inteligentes</p>
             <form id="login-form" onsubmit="return handleLogin(event)">
-                <input type="password" id="login-password" placeholder="Senha de acesso" required autocomplete="current-password">
-                <button type="submit" class="btn btn-primary btn-full">Entrar</button>
+                <div class="input-with-icon">
+                    <span class="input-icon">🔒</span>
+                    <input type="password" id="login-password" placeholder="Senha de acesso" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Acessar Painel</button>
             </form>
             <div id="login-error" class="login-error"></div>
         </div>
@@ -33,60 +37,255 @@
         <!-- SIDEBAR -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <span class="sidebar-logo">🏠</span>
-                <h2>Remarketing</h2>
+                <div class="brand-box">
+                    <span class="sidebar-logo">🏠</span>
+                    <div>
+                        <h2>IMOB Bot</h2>
+                        <span class="brand-subtitle">Remarketing VIP</span>
+                    </div>
+                </div>
             </div>
             <nav class="sidebar-nav">
                 <a href="#" class="nav-item active" data-page="dashboard">
-                    <span class="nav-icon">📊</span> Dashboard
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-label">Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-page="broadcast">
+                    <span class="nav-icon">⚡</span>
+                    <span class="nav-label">Disparo Rápido</span>
+                    <span class="nav-tag">Novo</span>
                 </a>
                 <a href="#" class="nav-item" data-page="leads">
-                    <span class="nav-icon">👥</span> Bolsão de Leads
+                    <span class="nav-icon">👥</span>
+                    <span class="nav-label">Bolsão de Leads</span>
                 </a>
                 <a href="#" class="nav-item" data-page="campaigns">
-                    <span class="nav-icon">🚀</span> Campanhas
+                    <span class="nav-icon">🚀</span>
+                    <span class="nav-label">Funil & Campanhas</span>
                 </a>
                 <a href="#" class="nav-item" data-page="messages">
-                    <span class="nav-icon">💬</span> Mensagens
+                    <span class="nav-icon">💬</span>
+                    <span class="nav-label">Editor D1...D30</span>
                 </a>
                 <a href="#" class="nav-item" data-page="control">
-                    <span class="nav-icon">⚙️</span> Controle
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-label">Controle & Pausas</span>
                 </a>
                 <a href="#" class="nav-item" data-page="log">
-                    <span class="nav-icon">📋</span> Log de Envios
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-label">Histórico de Envios</span>
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <button onclick="handleLogout()" class="btn btn-ghost btn-sm">Sair</button>
+                <div class="connection-pill">
+                    <span class="status-pulse-dot"></span> WhatsApp Conectado
+                </div>
+                <button onclick="handleLogout()" class="btn btn-ghost btn-sm btn-full mt-2">Sair da Conta</button>
             </div>
         </aside>
 
         <!-- MAIN CONTENT -->
         <main class="main-content">
-            <!-- DASHBOARD -->
+            <!-- ═══════════════════════════════════════ -->
+            <!-- DASHBOARD                               -->
+            <!-- ═══════════════════════════════════════ -->
             <section id="page-dashboard" class="page active">
                 <div class="page-header">
-                    <h1>Dashboard</h1>
-                    <button onclick="loadDashboard()" class="btn btn-ghost btn-sm">🔄 Atualizar</button>
+                    <div>
+                        <h1>Visão Geral</h1>
+                        <p class="page-subtitle">Acompanhe métricas em tempo real do funil e status de operação.</p>
+                    </div>
+                    <button onclick="loadDashboard()" class="btn btn-secondary btn-sm">🔄 Atualizar Dados</button>
                 </div>
                 <div class="stats-grid" id="stats-grid"></div>
-                <div class="card mt-4">
-                    <h3>📡 Status do Motor</h3>
-                    <div id="engine-status-panel"></div>
-                </div>
-                <div class="card mt-4">
-                    <h3>📋 Últimos Envios</h3>
-                    <div id="recent-dispatches"></div>
+                
+                <div class="dashboard-split mt-4">
+                    <div class="card">
+                        <h3>📡 Status do Motor Automático</h3>
+                        <div id="engine-status-panel"></div>
+                    </div>
+                    <div class="card">
+                        <h3>📋 Últimos Disparos Realizados</h3>
+                        <div id="recent-dispatches"></div>
+                    </div>
                 </div>
             </section>
 
-            <!-- LEADS -->
+            <!-- ═══════════════════════════════════════ -->
+            <!-- DISPARO RÁPIDO & TESTE (NOVO)          -->
+            <!-- ═══════════════════════════════════════ -->
+            <section id="page-broadcast" class="page">
+                <div class="page-header">
+                    <div>
+                        <h1>⚡ Disparo Rápido & Campanha Direta</h1>
+                        <p class="page-subtitle">Envie mensagens e fotos instantâneas com simulação visual do WhatsApp ao vivo.</p>
+                    </div>
+                </div>
+
+                <!-- PROGRESSO DA FILA ATIVA (APARECE QUANDO ENVIANDO) -->
+                <div id="broadcast-progress-container" class="card broadcast-progress-card hidden mb-4">
+                    <div class="progress-header">
+                        <div>
+                            <h3 id="broadcast-progress-title">🚀 Disparo em Andamento...</h3>
+                            <p id="broadcast-progress-subtitle" class="text-muted text-sm">Preparando envios com intervalos randômicos anti-bloqueio...</p>
+                        </div>
+                        <button onclick="cancelActiveBroadcast()" class="btn btn-danger btn-sm">🛑 Cancelar Fila</button>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div id="broadcast-progress-bar" class="progress-bar-fill" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-stats-row">
+                        <span>Progresso: <strong id="prog-current">0</strong> de <strong id="prog-total">0</strong></span>
+                        <span>✅ Sucessos: <strong id="prog-success" class="text-success">0</strong></span>
+                        <span>❌ Falhas: <strong id="prog-failed" class="text-danger">0</strong></span>
+                        <span>⏳ Próximo envio em: <strong id="prog-countdown">0s</strong></span>
+                    </div>
+                </div>
+
+                <div class="broadcast-layout">
+                    <!-- COLUNA ESQUERDA: EDITOR & SELEÇÃO DE LEADS -->
+                    <div class="broadcast-form-col">
+                        <div class="card">
+                            <h3>1. Mensagem & Imagem</h3>
+                            
+                            <div class="form-group">
+                                <div class="label-with-tags">
+                                    <label>Texto da Mensagem *</label>
+                                    <div class="tag-insert-buttons">
+                                        <button type="button" class="btn-tag" onclick="insertTag('{primeiro_nome}')">+ Nome</button>
+                                        <button type="button" class="btn-tag" onclick="insertTag('{telefone}')">+ Telefone</button>
+                                        <button type="button" class="btn-tag" onclick="insertTag('{Olá|Oi|Tudo bem?}')">+ Variação</button>
+                                    </div>
+                                </div>
+                                <textarea id="bc-message-text" rows="5" placeholder="Olá {primeiro_nome}, tudo bem? &#10;&#10;Passando para te mostrar uma oportunidade exclusiva de imóvel que acabou de entrar no nosso portfólio! &#10;&#10;Gostaria de receber as fotos e condições?" oninput="updateWhatsappPreview()"></textarea>
+                                <span class="help-text">Dica: Use <code>{nome}</code> para personalizar o nome ou <code>{Olá|Oi}</code> para spintax anti-spam.</span>
+                            </div>
+
+                            <div class="form-group mt-3">
+                                <label>Anexar Imagem (Opcional)</label>
+                                <div class="image-upload-wrapper">
+                                    <input type="file" id="bc-image-file" accept="image/*" onchange="handleImageSelected(event)" class="file-input-styled">
+                                    <div class="or-separator">OU cole URL direta:</div>
+                                    <input type="text" id="bc-image-url" placeholder="https://exemplo.com/foto-imovel.jpg" oninput="updateWhatsappPreview()">
+                                </div>
+                                <div id="bc-image-preview-badge" class="image-preview-badge hidden">
+                                    <span>📸 Imagem anexada com sucesso</span>
+                                    <button type="button" onclick="clearSelectedImage()" class="btn-clear-img">&times;</button>
+                                </div>
+                            </div>
+
+                            <div class="form-row mt-3">
+                                <div class="form-group">
+                                    <label>Intervalo Mínimo (segundos)</label>
+                                    <input type="number" id="bc-min-delay" value="15" min="5" max="300">
+                                </div>
+                                <div class="form-group">
+                                    <label>Intervalo Máximo (segundos)</label>
+                                    <input type="number" id="bc-max-delay" value="40" min="10" max="600">
+                                </div>
+                            </div>
+
+                            <div class="form-checkbox-row mt-2">
+                                <label class="checkbox-container">
+                                    <input type="checkbox" id="bc-vary-text" checked>
+                                    <span class="checkmark"></span>
+                                    Aplicar leve variação automática de emojis e pontuação anti-bloqueio
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- SELEÇÃO DE LEADS -->
+                        <div class="card mt-4">
+                            <div class="leads-selection-header">
+                                <div>
+                                    <h3>2. Selecionar Destinatários</h3>
+                                    <p class="text-muted text-sm">Escolha os leads que receberão este disparo.</p>
+                                </div>
+                                <div class="selection-badge">
+                                    <strong id="bc-selected-count">0</strong> selecionados
+                                </div>
+                            </div>
+
+                            <div class="filters-bar mt-3">
+                                <input type="text" id="bc-lead-search" placeholder="Filtrar por nome ou telefone..." oninput="renderBroadcastLeadsTable()">
+                                <select id="bc-lead-tag-filter" onchange="renderBroadcastLeadsTable()">
+                                    <option value="">Todas as Tags</option>
+                                </select>
+                            </div>
+
+                            <div class="selection-action-bar">
+                                <label class="checkbox-container">
+                                    <input type="checkbox" id="bc-select-all" onchange="toggleSelectAllBroadcastLeads(this)">
+                                    <span class="checkmark"></span>
+                                    <strong>Selecionar Todos os Visíveis</strong>
+                                </label>
+                                <button type="button" class="btn btn-ghost btn-xs" onclick="clearBroadcastSelection()">Desmarcar Todos</button>
+                            </div>
+
+                            <div id="bc-leads-table-container" class="table-responsive select-leads-table mt-2"></div>
+
+                            <button type="button" id="btn-start-broadcast" class="btn btn-primary btn-full btn-lg mt-4" onclick="confirmAndStartBroadcast()">
+                                🚀 Iniciar Disparo em Massa
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- COLUNA DIREITA: SIMULADOR DE WHATSAPP AO VIVO -->
+                    <div class="broadcast-preview-col">
+                        <div class="phone-mockup-wrapper sticky-preview">
+                            <div class="phone-header-bar">
+                                <span class="phone-camera"></span>
+                                <span class="phone-speaker"></span>
+                            </div>
+                            <div class="whatsapp-chat-header">
+                                <div class="chat-avatar">👤</div>
+                                <div class="chat-contact-info">
+                                    <strong id="preview-contact-name">João Silva (Cliente)</strong>
+                                    <span>online</span>
+                                </div>
+                                <div class="chat-actions">📞 📹 ⋮</div>
+                            </div>
+                            <div class="whatsapp-chat-body">
+                                <div class="chat-date-pill">HOJE</div>
+                                
+                                <div id="whatsapp-bubble" class="whatsapp-bubble-out">
+                                    <!-- PREVIEW DA IMAGEM -->
+                                    <div id="preview-img-container" class="preview-img-container hidden">
+                                        <img id="preview-img-tag" src="" alt="Anexo">
+                                    </div>
+                                    <!-- PREVIEW DO TEXTO -->
+                                    <div id="preview-message-text" class="preview-text">
+                                        Olá João, tudo bem? &#10;&#10;Passando para te mostrar uma oportunidade exclusiva de imóvel que acabou de entrar no nosso portfólio!
+                                    </div>
+                                    <div class="bubble-meta">
+                                        <span id="preview-time">12:00</span>
+                                        <span class="double-check">✓✓</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="whatsapp-input-bar">
+                                <span>😊</span>
+                                <span class="fake-input">Mensagem...</span>
+                                <span>📎</span>
+                                <span>🎤</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- BOLSÃO DE LEADS                         -->
+            <!-- ═══════════════════════════════════════ -->
             <section id="page-leads" class="page">
                 <div class="page-header">
-                    <h1>Bolsão de Leads</h1>
+                    <div>
+                        <h1>Bolsão de Leads</h1>
+                        <p class="page-subtitle">Gerencie, segmente e controle pausas individuais de clientes.</p>
+                    </div>
                     <div class="header-actions">
-                        <button onclick="showAddLeadModal()" class="btn btn-primary btn-sm">+ Adicionar</button>
-                        <button onclick="showImportModal()" class="btn btn-secondary btn-sm">📥 Importar</button>
+                        <button onclick="showAddLeadModal()" class="btn btn-primary btn-sm">+ Novo Lead</button>
+                        <button onclick="showImportModal()" class="btn btn-secondary btn-sm">📥 Importar Lista</button>
                     </div>
                 </div>
                 <div class="filters-bar">
@@ -104,22 +303,32 @@
                 </div>
             </section>
 
-            <!-- CAMPANHAS -->
+            <!-- ═══════════════════════════════════════ -->
+            <!-- CAMPANHAS                              -->
+            <!-- ═══════════════════════════════════════ -->
             <section id="page-campaigns" class="page">
                 <div class="page-header">
-                    <h1>Campanhas</h1>
+                    <div>
+                        <h1>Campanhas de Remarketing</h1>
+                        <p class="page-subtitle">Crie e configure funis automatizados por empreendimento.</p>
+                    </div>
                     <button onclick="showCampaignModal()" class="btn btn-primary btn-sm">+ Nova Campanha</button>
                 </div>
                 <div id="campaigns-list"></div>
             </section>
 
-            <!-- MENSAGENS -->
+            <!-- ═══════════════════════════════════════ -->
+            <!-- MENSAGENS POR DIA                      -->
+            <!-- ═══════════════════════════════════════ -->
             <section id="page-messages" class="page">
                 <div class="page-header">
-                    <h1>Editor de Mensagens</h1>
+                    <div>
+                        <h1>Editor de Mensagens por Dia</h1>
+                        <p class="page-subtitle">Defina o que cada lead receberá no D1, D2, D3, D5, D7, D14, D30.</p>
+                    </div>
                 </div>
                 <div class="card">
-                    <p class="text-muted">Selecione uma campanha para editar as mensagens por dia do funil.</p>
+                    <label class="mb-2 block font-medium">Selecione a Campanha:</label>
                     <select id="msg-campaign-select" onchange="loadCampaignMessages()">
                         <option value="">Selecione uma campanha...</option>
                     </select>
@@ -127,28 +336,38 @@
                 <div id="messages-editor" class="mt-4"></div>
             </section>
 
-            <!-- CONTROLE -->
+            <!-- ═══════════════════════════════════════ -->
+            <!-- CONTROLE                               -->
+            <!-- ═══════════════════════════════════════ -->
             <section id="page-control" class="page">
                 <div class="page-header">
-                    <h1>Controle de Envios</h1>
+                    <div>
+                        <h1>Central de Controle</h1>
+                        <p class="page-subtitle">Pausa geral de emergência e lista de números com envio suspenso.</p>
+                    </div>
                 </div>
                 <div class="control-grid">
                     <div class="card control-card">
-                        <h3>🔌 Motor de Disparos</h3>
+                        <h3>🔌 Motor de Disparos Automático</h3>
                         <div id="engine-control"></div>
                     </div>
                     <div class="card control-card">
-                        <h3>⏸️ Leads Pausados</h3>
+                        <h3>⏸️ Leads Pausados Individualmente</h3>
                         <div id="paused-leads-list"></div>
                     </div>
                 </div>
             </section>
 
-            <!-- LOG -->
+            <!-- ═══════════════════════════════════════ -->
+            <!-- HISTÓRICO                              -->
+            <!-- ═══════════════════════════════════════ -->
             <section id="page-log" class="page">
                 <div class="page-header">
-                    <h1>Log de Envios</h1>
-                    <button onclick="loadDispatchLog()" class="btn btn-ghost btn-sm">🔄 Atualizar</button>
+                    <div>
+                        <h1>Histórico Geral de Envios</h1>
+                        <p class="page-subtitle">Logs e status de entrega de cada mensagem disparada.</p>
+                    </div>
+                    <button onclick="loadDispatchLog()" class="btn btn-secondary btn-sm">🔄 Atualizar</button>
                 </div>
                 <div class="card">
                     <div id="dispatch-log-table"></div>

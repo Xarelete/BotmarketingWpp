@@ -1,6 +1,12 @@
 /* =============================================================================
-   BotRemarketingIMOB — SPA App (Vanilla JS)
+   BotRemarketingIMOB — SPA App & Simulador WhatsApp (Vanilla JS)
    ============================================================================= */
+
+// Estado global da aplicação
+let allLeadsCache = [];
+let selectedLeadIds = new Set();
+let broadcastPollingInterval = null;
+let currentUploadedImageUrl = null;
 
 // ═══════════════════════════════════════════
 // API HELPERS
@@ -32,7 +38,7 @@ async function api(url, options = {}) {
 }
 
 // ═══════════════════════════════════════════
-// TOAST
+// TOAST & MODAL
 // ═══════════════════════════════════════════
 
 function toast(message, type = 'info') {
@@ -43,10 +49,6 @@ function toast(message, type = 'info') {
     container.appendChild(el);
     setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3500);
 }
-
-// ═══════════════════════════════════════════
-// MODAL
-// ═══════════════════════════════════════════
 
 function openModal(title, bodyHTML) {
     document.getElementById('modal-title').textContent = title;
@@ -78,6 +80,7 @@ function showApp() {
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     loadDashboard();
+    checkActiveBroadcast();
 }
 
 async function handleLogin(e) {
@@ -110,9 +113,9 @@ document.querySelectorAll('.nav-item').forEach(item => {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.getElementById(`page-${page}`).classList.add('active');
 
-        // Load data for the page
         const loaders = {
             dashboard: loadDashboard,
+            broadcast: loadBroadcastPage,
             leads: loadLeads,
             campaigns: loadCampaigns,
             messages: loadMessagesPage,
@@ -137,17 +140,17 @@ async function loadDashboard() {
             <div class="stat-card">
                 <div class="stat-icon">👥</div>
                 <div class="stat-value">${leads.active || 0}</div>
-                <div class="stat-label">Leads Ativos</div>
+                <div class="stat-label">Leads no Bolsão</div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon">🔄</div>
                 <div class="stat-value">${leads.in_funnel || 0}</div>
-                <div class="stat-label">No Funil</div>
+                <div class="stat-label">Em Remarketing Ativo</div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon">⏸️</div>
                 <div class="stat-value">${leads.paused || 0}</div>
-                <div class="stat-label">Pausados</div>
+                <div class="stat-label">Envios Pausados</div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon">🚀</div>
@@ -162,32 +165,30 @@ async function loadDashboard() {
             <div class="stat-card">
                 <div class="stat-icon">🏆</div>
                 <div class="stat-value">${leads.converted || 0}</div>
-                <div class="stat-label">Convertidos</div>
+                <div class="stat-label">Leads Convertidos</div>
             </div>
         `;
 
-        // Engine status
         const paused = engine.engine_paused;
         document.getElementById('engine-status-panel').innerHTML = `
-            <div class="engine-toggle">
-                <div class="status-dot ${paused ? 'paused' : 'active'}"></div>
-                <div>
-                    <strong>${paused ? '⏸️ Motor PAUSADO' : '✅ Motor ATIVO'}</strong>
-                    <div class="text-muted" style="font-size:0.8rem">${engine.current_date || ''}</div>
+            <div class="engine-toggle" style="background:var(--bg-input);padding:1rem;border-radius:var(--radius-sm);display:flex;align-items:center;gap:1rem;margin-bottom:1rem">
+                <div class="status-pulse-dot" style="background:${paused ? 'var(--warning)' : 'var(--success)'};box-shadow:0 0 10px ${paused ? 'var(--warning)' : 'var(--success)'}"></div>
+                <div style="flex:1">
+                    <strong style="font-size:0.95rem">${paused ? '⏸️ Motor Geral PAUSADO' : '✅ Motor de Disparos ATIVO'}</strong>
+                    <div class="text-muted text-sm">Data de operação: ${engine.current_date || 'Hoje'}</div>
                 </div>
             </div>
             ${(engine.campaigns || []).map(c => `
-                <div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--border);font-size:0.85rem">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--border);font-size:0.85rem">
                     <span>📌 <strong>${c.name}</strong></span>
-                    <span>Hoje: <strong>${c.sent_today}</strong>/${c.target_today} | Total: ${c.total_sent}</span>
+                    <span>Hoje: <strong style="color:var(--accent)">${c.sent_today}</strong>/${c.target_today} | Total: ${c.total_sent}</span>
                 </div>
             `).join('')}
         `;
 
-        // Recent dispatches
         const log = data.recent_dispatches || [];
         if (log.length === 0) {
-            document.getElementById('recent-dispatches').innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><p>Nenhum envio registrado ainda</p></div>';
+            document.getElementById('recent-dispatches').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">📭 Nenhum envio registrado ainda</div>';
         } else {
             document.getElementById('recent-dispatches').innerHTML = `
                 <div class="table-responsive"><table>
@@ -195,8 +196,8 @@ async function loadDashboard() {
                     ${log.map(l => `
                         <tr>
                             <td>${formatTime(l.sent_at)}</td>
-                            <td>${l.lead_name || l.lead_phone}</td>
-                            <td>${l.campaign_id}</td>
+                            <td><strong>${l.lead_name || l.lead_phone}</strong></td>
+                            <td><span class="tag">${l.campaign_id}</span></td>
                             <td>D${l.remarketing_day || 0}</td>
                             <td><span class="badge badge-${l.status}">${l.status}</span></td>
                         </tr>
@@ -208,7 +209,329 @@ async function loadDashboard() {
 }
 
 // ═══════════════════════════════════════════
-// LEADS
+// DISPARO RÁPIDO & SIMULADOR WHATSAPP
+// ═══════════════════════════════════════════
+
+async function loadBroadcastPage() {
+    updateWhatsappPreview();
+    await fetchAllLeadsForBroadcast();
+    checkActiveBroadcast();
+}
+
+async function fetchAllLeadsForBroadcast() {
+    try {
+        const data = await api('/api/leads?limit=500&status=active');
+        allLeadsCache = data.leads || [];
+
+        // Extrai tags únicas para o filtro
+        const tagSet = new Set();
+        allLeadsCache.forEach(l => (l.tags || []).forEach(t => tagSet.add(t)));
+
+        const tagSelect = document.getElementById('bc-lead-tag-filter');
+        if (tagSelect) {
+            tagSelect.innerHTML = '<option value="">Todas as Tags</option>' +
+                Array.from(tagSet).map(t => `<option value="${t}">${t}</option>`).join('');
+        }
+
+        renderBroadcastLeadsTable();
+    } catch (err) { console.error(err); }
+}
+
+function renderBroadcastLeadsTable() {
+    const search = (document.getElementById('bc-lead-search')?.value || '').toLowerCase();
+    const tagFilter = document.getElementById('bc-lead-tag-filter')?.value || '';
+
+    const filtered = allLeadsCache.filter(l => {
+        const nameMatch = (l.name || '').toLowerCase().includes(search);
+        const phoneMatch = (l.phone || '').includes(search);
+        const tagMatch = !tagFilter || (l.tags || []).includes(tagFilter);
+        return (nameMatch || phoneMatch) && tagMatch;
+    });
+
+    const container = document.getElementById('bc-leads-table-container');
+    if (!container) return;
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text-muted)">Nenhum lead encontrado com estes filtros</div>';
+        return;
+    }
+
+    container.innerHTML = `
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:36px"></th>
+                    <th>Nome</th>
+                    <th>Telefone</th>
+                    <th>Tags</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${filtered.map(l => {
+                    const isChecked = selectedLeadIds.has(l.id);
+                    return `
+                        <tr>
+                            <td>
+                                <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleLeadSelection('${l.id}', this.checked)">
+                            </td>
+                            <td><strong>${l.name || 'Sem nome'}</strong></td>
+                            <td style="font-family:monospace;font-size:0.8rem">${l.phone}</td>
+                            <td>${(l.tags || []).map(t => `<span class="tag">${t}</span>`).join(' ') || '—'}</td>
+                            <td>
+                                ${l.paused ? '<span class="badge badge-paused">pausado</span>' : '<span class="badge badge-active">ativo</span>'}
+                            </td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+    `;
+
+    updateBroadcastSelectedCount();
+}
+
+function toggleLeadSelection(leadId, isSelected) {
+    if (isSelected) {
+        selectedLeadIds.add(leadId);
+    } else {
+        selectedLeadIds.delete(leadId);
+    }
+    updateBroadcastSelectedCount();
+}
+
+function toggleSelectAllBroadcastLeads(checkbox) {
+    const search = (document.getElementById('bc-lead-search')?.value || '').toLowerCase();
+    const tagFilter = document.getElementById('bc-lead-tag-filter')?.value || '';
+
+    const visibleLeads = allLeadsCache.filter(l => {
+        const nameMatch = (l.name || '').toLowerCase().includes(search);
+        const phoneMatch = (l.phone || '').includes(search);
+        const tagMatch = !tagFilter || (l.tags || []).includes(tagFilter);
+        return (nameMatch || phoneMatch) && tagMatch;
+    });
+
+    visibleLeads.forEach(l => {
+        if (checkbox.checked) {
+            selectedLeadIds.add(l.id);
+        } else {
+            selectedLeadIds.delete(l.id);
+        }
+    });
+
+    renderBroadcastLeadsTable();
+}
+
+function clearBroadcastSelection() {
+    selectedLeadIds.clear();
+    const selectAllBox = document.getElementById('bc-select-all');
+    if (selectAllBox) selectAllBox.checked = false;
+    renderBroadcastLeadsTable();
+}
+
+function updateBroadcastSelectedCount() {
+    const el = document.getElementById('bc-selected-count');
+    if (el) el.textContent = selectedLeadIds.size;
+}
+
+function insertTag(tag) {
+    const textarea = document.getElementById('bc-message-text');
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    textarea.value = text.substring(0, start) + tag + text.substring(end);
+    textarea.focus();
+    textarea.selectionStart = textarea.selectionEnd = start + tag.length;
+    updateWhatsappPreview();
+}
+
+function updateWhatsappPreview() {
+    const rawText = document.getElementById('bc-message-text')?.value || '';
+    const imageUrl = currentUploadedImageUrl || document.getElementById('bc-image-url')?.value || '';
+
+    // Substitui spintax e tags para a prévia
+    let previewText = rawText
+        .replace(/\{primeiro_nome\}/gi, 'João')
+        .replace(/\{nome\}/gi, 'João Silva')
+        .replace(/\{telefone\}/gi, '+55 11 99999-8888')
+        .replace(/\{([^{}]+)\}/g, (match, choices) => choices.split('|')[0]);
+
+    if (!previewText.trim()) {
+        previewText = 'Olá João, tudo bem?\n\nPassando para te mostrar uma oportunidade exclusiva de imóvel!';
+    }
+
+    const previewContainer = document.getElementById('preview-message-text');
+    if (previewContainer) previewContainer.textContent = previewText;
+
+    // Imagem
+    const imgContainer = document.getElementById('preview-img-container');
+    const imgTag = document.getElementById('preview-img-tag');
+    if (imageUrl) {
+        imgTag.src = imageUrl;
+        imgContainer.classList.remove('hidden');
+    } else {
+        imgContainer.classList.add('hidden');
+    }
+
+    // Horário atual no balão
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const timeEl = document.getElementById('preview-time');
+    if (timeEl) timeEl.textContent = timeStr;
+}
+
+async function handleImageSelected(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+        toast('Fazendo upload da imagem...', 'info');
+        const data = await api('/api/upload/image', { method: 'POST', body: formData });
+        currentUploadedImageUrl = data.image_url;
+
+        const badge = document.getElementById('bc-image-preview-badge');
+        if (badge) badge.classList.remove('hidden');
+
+        updateWhatsappPreview();
+        toast('Imagem carregada com sucesso!', 'success');
+    } catch (err) {
+        toast(err.message, 'error');
+    }
+}
+
+function clearSelectedImage() {
+    currentUploadedImageUrl = null;
+    const fileInput = document.getElementById('bc-image-file');
+    if (fileInput) fileInput.value = '';
+    const urlInput = document.getElementById('bc-image-url');
+    if (urlInput) urlInput.value = '';
+    const badge = document.getElementById('bc-image-preview-badge');
+    if (badge) badge.classList.add('hidden');
+    updateWhatsappPreview();
+}
+
+async function confirmAndStartBroadcast() {
+    const text = document.getElementById('bc-message-text')?.value.trim();
+    if (!text) {
+        toast('Digite a mensagem antes de disparar.', 'error');
+        return;
+    }
+
+    if (selectedLeadIds.size === 0) {
+        toast('Selecione pelo menos 1 lead para enviar.', 'error');
+        return;
+    }
+
+    const minDelay = parseInt(document.getElementById('bc-min-delay')?.value || 15);
+    const maxDelay = parseInt(document.getElementById('bc-max-delay')?.value || 40);
+    const varyText = document.getElementById('bc-vary-text')?.checked ?? true;
+    const imageUrl = currentUploadedImageUrl || document.getElementById('bc-image-url')?.value.trim() || null;
+
+    if (!confirm(`🚀 Iniciar disparo em massa para ${selectedLeadIds.size} leads selecionados com intervalos entre ${minDelay}s e ${maxDelay}s?`)) {
+        return;
+    }
+
+    try {
+        const resp = await api('/api/broadcast/start', {
+            method: 'POST',
+            body: {
+                lead_ids: Array.from(selectedLeadIds),
+                message_template: text,
+                image_url: imageUrl,
+                min_delay: minDelay,
+                max_delay: maxDelay,
+                vary_text: varyText,
+            }
+        });
+
+        toast(`Disparo iniciado para ${resp.total} leads!`, 'success');
+        startBroadcastPolling();
+    } catch (err) {
+        toast(err.message, 'error');
+    }
+}
+
+function startBroadcastPolling() {
+    const container = document.getElementById('broadcast-progress-container');
+    if (container) container.classList.remove('hidden');
+
+    if (broadcastPollingInterval) clearInterval(broadcastPollingInterval);
+
+    broadcastPollingInterval = setInterval(async () => {
+        try {
+            const status = await api('/api/broadcast/status');
+            updateBroadcastProgressUI(status);
+
+            if (!status.is_running) {
+                clearInterval(broadcastPollingInterval);
+                broadcastPollingInterval = null;
+                toast('Fila de disparo finalizada!', 'success');
+            }
+        } catch (err) {
+            console.error('Erro ao consultar status da fila:', err);
+        }
+    }, 1200);
+}
+
+function updateBroadcastProgressUI(status) {
+    const container = document.getElementById('broadcast-progress-container');
+    if (!container) return;
+
+    if (!status.is_running && status.total === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+
+    container.classList.remove('hidden');
+
+    const total = status.total || 1;
+    const current = status.current || 0;
+    const percent = Math.min(100, Math.round((current / total) * 100));
+
+    document.getElementById('broadcast-progress-bar').style.width = `${percent}%`;
+    document.getElementById('prog-current').textContent = current;
+    document.getElementById('prog-total').textContent = total;
+    document.getElementById('prog-success').textContent = status.success || 0;
+    document.getElementById('prog-failed').textContent = status.failed || 0;
+    document.getElementById('prog-countdown').textContent = `${status.next_send_in_seconds || 0}s`;
+
+    const titleEl = document.getElementById('broadcast-progress-title');
+    const subtitleEl = document.getElementById('broadcast-progress-subtitle');
+
+    if (status.is_running) {
+        titleEl.textContent = `🚀 Enviando para: ${status.current_lead_name || '...'} (${percent}%)`;
+        subtitleEl.textContent = `Número: ${status.current_lead_phone || ''} | Fila em andamento com pausas naturais...`;
+    } else {
+        titleEl.textContent = `🏁 Disparo Finalizado (${status.success} enviados com sucesso, ${status.failed} falhas)`;
+        subtitleEl.textContent = `Todos os contatos foram processados.`;
+    }
+}
+
+async function checkActiveBroadcast() {
+    try {
+        const status = await api('/api/broadcast/status');
+        if (status.is_running) {
+            startBroadcastPolling();
+        }
+    } catch { }
+}
+
+async function cancelActiveBroadcast() {
+    if (!confirm('Deseja realmente interromper a fila de envios?')) return;
+    try {
+        await api('/api/broadcast/cancel', { method: 'POST' });
+        toast('Solicitação de cancelamento enviada!', 'info');
+    } catch (err) {
+        toast(err.message, 'error');
+    }
+}
+
+// ═══════════════════════════════════════════
+// LEADS (CRUD)
 // ═══════════════════════════════════════════
 
 let leadsSearchTimer;
@@ -230,45 +553,49 @@ async function loadLeads() {
         const leads = data.leads || [];
 
         if (leads.length === 0) {
-            document.getElementById('leads-table-container').innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><p>Nenhum lead encontrado</p></div>';
+            document.getElementById('leads-table-container').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">📭 Nenhum lead encontrado</div>';
             return;
         }
 
         document.getElementById('leads-table-container').innerHTML = `
             <div class="table-responsive"><table>
-                <tr><th>Nome</th><th>Telefone</th><th>Tags</th><th>Funil</th><th>Status</th><th>Ações</th></tr>
-                ${leads.map(l => `
-                    <tr>
-                        <td><strong>${l.name || 'Sem nome'}</strong></td>
-                        <td style="font-family:monospace;font-size:0.8rem">${l.phone}</td>
-                        <td>${(l.tags || []).map(t => `<span class="tag">${t}</span>`).join(' ') || '—'}</td>
-                        <td>D${l.remarketing_day || 0}${l.next_send_date ? ` → ${l.next_send_date}` : ''}</td>
-                        <td>
-                            <span class="badge badge-${l.status}">${l.status}</span>
-                            ${l.paused ? '<span class="badge badge-paused">pausado</span>' : ''}
-                        </td>
-                        <td>
-                            <div class="actions-cell">
-                                ${l.paused
-                                    ? `<button class="btn btn-success btn-xs" onclick="resumeLead('${l.id}')">▶️</button>`
-                                    : `<button class="btn btn-secondary btn-xs" onclick="pauseLead('${l.id}')">⏸️</button>`
-                                }
-                                <button class="btn btn-secondary btn-xs" onclick="editLeadModal('${l.id}')">✏️</button>
-                                <button class="btn btn-danger btn-xs" onclick="deleteLead('${l.id}')">🗑️</button>
-                            </div>
-                        </td>
-                    </tr>
-                `).join('')}
+                <thead>
+                    <tr><th>Nome</th><th>Telefone</th><th>Tags</th><th>Funil</th><th>Status</th><th>Ações</th></tr>
+                </thead>
+                <tbody>
+                    ${leads.map(l => `
+                        <tr>
+                            <td><strong>${l.name || 'Sem nome'}</strong></td>
+                            <td style="font-family:monospace;font-size:0.8rem">${l.phone}</td>
+                            <td>${(l.tags || []).map(t => `<span class="tag">${t}</span>`).join(' ') || '—'}</td>
+                            <td>D${l.remarketing_day || 0}${l.next_send_date ? ` → ${l.next_send_date}` : ''}</td>
+                            <td>
+                                <span class="badge badge-${l.status}">${l.status}</span>
+                                ${l.paused ? '<span class="badge badge-paused">pausado</span>' : ''}
+                            </td>
+                            <td>
+                                <div style="display:flex;gap:0.35rem">
+                                    ${l.paused
+                                        ? `<button class="btn btn-success btn-xs" onclick="resumeLead('${l.id}')">▶️</button>`
+                                        : `<button class="btn btn-secondary btn-xs" onclick="pauseLead('${l.id}')">⏸️</button>`
+                                    }
+                                    <button class="btn btn-secondary btn-xs" onclick="editLeadModal('${l.id}')">✏️</button>
+                                    <button class="btn btn-danger btn-xs" onclick="deleteLead('${l.id}')">🗑️</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
             </table></div>
-            <div class="text-muted" style="font-size:0.78rem;margin-top:0.75rem">
-                Mostrando ${leads.length} leads | Total: ${data.total}
+            <div class="text-muted text-sm" style="margin-top:0.75rem">
+                Mostrando ${leads.length} leads de ${data.total} cadastrados
             </div>
         `;
     } catch (err) { console.error(err); }
 }
 
 function showAddLeadModal() {
-    openModal('Adicionar Lead', `
+    openModal('Adicionar Novo Lead', `
         <form onsubmit="return addLead(event)">
             <div class="form-row">
                 <div class="form-group">
@@ -276,19 +603,19 @@ function showAddLeadModal() {
                     <input type="text" id="add-phone" placeholder="5511999887766" required>
                 </div>
                 <div class="form-group">
-                    <label>Nome</label>
-                    <input type="text" id="add-name" placeholder="Nome do lead">
+                    <label>Nome do Cliente</label>
+                    <input type="text" id="add-name" placeholder="Ex: Roberto Carlos">
                 </div>
             </div>
             <div class="form-group">
-                <label>Tags (separadas por vírgula)</label>
-                <input type="text" id="add-tags" placeholder="abandonado, 3quartos">
+                <label>Tags de Interesse (separadas por vírgula)</label>
+                <input type="text" id="add-tags" placeholder="luxo, 3quartos, zona-sul">
             </div>
             <div class="form-group">
-                <label>Observações</label>
-                <textarea id="add-notes" placeholder="Notas sobre o lead"></textarea>
+                <label>Observações / Perfil</label>
+                <textarea id="add-notes" rows="3" placeholder="Interessado em cobertura com vista para o mar..."></textarea>
             </div>
-            <button type="submit" class="btn btn-primary btn-full">Adicionar Lead</button>
+            <button type="submit" class="btn btn-primary btn-full">Salvar Lead no Bolsão</button>
         </form>
     `);
 }
@@ -305,7 +632,7 @@ async function addLead(e) {
                 notes: document.getElementById('add-notes').value,
             }
         });
-        toast('Lead adicionado!', 'success');
+        toast('Lead adicionado com sucesso!', 'success');
         closeModal();
         loadLeads();
     } catch (err) { toast(err.message, 'error'); }
@@ -315,7 +642,7 @@ async function addLead(e) {
 async function pauseLead(id) {
     try {
         await api(`/api/leads/${id}/pause`, { method: 'POST', body: {} });
-        toast('Lead pausado', 'info');
+        toast('Envios pausados para este lead', 'info');
         loadLeads();
     } catch (err) { toast(err.message, 'error'); }
 }
@@ -323,7 +650,7 @@ async function pauseLead(id) {
 async function resumeLead(id) {
     try {
         await api(`/api/leads/${id}/resume`, { method: 'POST' });
-        toast('Lead retomado', 'success');
+        toast('Envios retomados!', 'success');
         loadLeads();
     } catch (err) { toast(err.message, 'error'); }
 }
@@ -355,19 +682,19 @@ async function editLeadModal(id) {
                 </div>
                 <div class="form-group">
                     <label>Observações</label>
-                    <textarea id="edit-notes">${lead.notes || ''}</textarea>
+                    <textarea id="edit-notes" rows="3">${lead.notes || ''}</textarea>
                 </div>
                 <div class="form-group">
-                    <label>Status</label>
+                    <label>Status no Funil</label>
                     <select id="edit-status">
-                        <option value="active" ${lead.status === 'active' ? 'selected' : ''}>Ativo</option>
+                        <option value="active" ${lead.status === 'active' ? 'selected' : ''}>Ativo no Funil</option>
                         <option value="inactive" ${lead.status === 'inactive' ? 'selected' : ''}>Inativo</option>
-                        <option value="converted" ${lead.status === 'converted' ? 'selected' : ''}>Convertido</option>
+                        <option value="converted" ${lead.status === 'converted' ? 'selected' : ''}>Convertido / Comprou</option>
                     </select>
                 </div>
                 <div style="display:flex;gap:0.5rem">
-                    <button type="submit" class="btn btn-primary" style="flex:1">Salvar</button>
-                    <button type="button" class="btn btn-secondary" onclick="resetFunnel('${id}')" style="flex:1">🔄 Resetar Funil</button>
+                    <button type="submit" class="btn btn-primary" style="flex:1">Salvar Alterações</button>
+                    <button type="button" class="btn btn-secondary" onclick="resetFunnel('${id}')" style="flex:1">🔄 Reiniciar Funil (D1)</button>
                 </div>
             </form>
         `);
@@ -396,29 +723,29 @@ async function updateLead(e, id) {
 async function resetFunnel(id) {
     try {
         await api(`/api/leads/${id}/reset-funnel`, { method: 'POST' });
-        toast('Funil resetado!', 'success');
+        toast('Funil do lead reiniciado para D1!', 'success');
         closeModal();
         loadLeads();
     } catch (err) { toast(err.message, 'error'); }
 }
 
 function showImportModal() {
-    openModal('Importar Leads', `
+    openModal('Importar Lista de Leads', `
         <div class="form-group">
-            <label>Arquivo CSV ou JSON</label>
-            <input type="file" id="import-file" accept=".json,.csv" style="padding:0.5rem">
+            <label>Selecione arquivo CSV ou JSON</label>
+            <input type="file" id="import-file" accept=".json,.csv" class="file-input-styled">
         </div>
-        <button onclick="importLeads()" class="btn btn-primary btn-full">📥 Importar</button>
-        <div class="text-muted" style="font-size:0.78rem;margin-top:1rem">
-            <strong>CSV:</strong> telefone,nome,tags(separadas por ;),notas<br>
-            <strong>JSON:</strong> [{"phone":"5511...", "name":"Nome", "tags":["tag1"]}]
+        <button onclick="importLeads()" class="btn btn-primary btn-full mt-3">📥 Iniciar Importação</button>
+        <div class="text-muted text-sm mt-3">
+            <strong>Exemplo CSV:</strong> telefone,nome,tags,notas<br>
+            <code>5511999887766,Carlos Silva,alto-padrao;investidor,Interessado em Moema</code>
         </div>
     `);
 }
 
 async function importLeads() {
     const file = document.getElementById('import-file').files[0];
-    if (!file) { toast('Selecione um arquivo', 'error'); return; }
+    if (!file) { toast('Selecione um arquivo primeiro', 'error'); return; }
     const formData = new FormData();
     formData.append('file', file);
     try {
@@ -430,7 +757,7 @@ async function importLeads() {
 }
 
 // ═══════════════════════════════════════════
-// CAMPAIGNS
+// CAMPANHAS & FUNIS
 // ═══════════════════════════════════════════
 
 async function loadCampaigns() {
@@ -439,7 +766,7 @@ async function loadCampaigns() {
         const campaigns = data.campaigns || [];
 
         if (campaigns.length === 0) {
-            document.getElementById('campaigns-list').innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><p>Nenhuma campanha criada ainda</p></div>';
+            document.getElementById('campaigns-list').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">📭 Nenhuma campanha cadastrada</div>';
             return;
         }
 
@@ -448,18 +775,17 @@ async function loadCampaigns() {
             const isActive = c.status === 'active';
             const funnelDays = (c.funnel_days || [1,2,3,5,7,14,30]).join(', ');
             return `
-                <div class="campaign-card">
-                    <div class="campaign-header">
-                        <h3>${isActive ? '✅' : '⏸️'} ${c.name}</h3>
+                <div class="card mb-3">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+                        <h3 style="margin:0">${isActive ? '✅' : '⏸️'} ${c.name}</h3>
                         <span class="badge badge-${c.status}">${c.status}</span>
                     </div>
-                    <div class="campaign-meta">
-                        <span>🆔 <code style="font-size:0.75rem">${c.id}</code></span>
-                        <span>🏷️ ${(c.target_tags || []).join(', ') || 'todos'}</span>
-                        <span>📊 ${stats.total_sent || 0} enviadas</span>
-                        <span>📅 Funil: D${funnelDays}</span>
+                    <div style="display:flex;gap:1.25rem;font-size:0.82rem;color:var(--text-secondary);flex-wrap:wrap;margin-bottom:0.75rem">
+                        <span>🏷️ Tags: ${(c.target_tags || []).join(', ') || 'todos os leads'}</span>
+                        <span>📊 Enviadas: <strong>${stats.total_sent || 0}</strong></span>
+                        <span>📅 Dias do Funil: D${funnelDays}</span>
                     </div>
-                    <div class="campaign-actions">
+                    <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
                         ${isActive
                             ? `<button class="btn btn-secondary btn-xs" onclick="pauseCampaign('${c.id}')">⏸️ Pausar</button>`
                             : `<button class="btn btn-success btn-xs" onclick="resumeCampaign('${c.id}')">▶️ Retomar</button>`
@@ -475,56 +801,43 @@ async function loadCampaigns() {
 }
 
 function showCampaignModal() {
-    openModal('Nova Campanha', `
+    openModal('Criar Campanha de Remarketing', `
         <form onsubmit="return createCampaign(event)">
             <div class="form-group">
                 <label>Nome da Campanha *</label>
-                <input type="text" id="camp-name" placeholder="Reativação Zona Sul" required>
+                <input type="text" id="camp-name" placeholder="Ex: Lançamento Grand Reserva" required>
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label>Tags Alvo (vírgula)</label>
-                    <input type="text" id="camp-tags" placeholder="abandonado, zona-sul">
+                    <label>Tags Alvo (separadas por vírgula)</label>
+                    <input type="text" id="camp-tags" placeholder="alto-padrao, 3quartos">
                 </div>
                 <div class="form-group">
-                    <label>Tipo</label>
-                    <select id="camp-type">
-                        <option value="reativacao_geral">Reativação Geral</option>
-                        <option value="lancamento">Lançamento</option>
-                        <option value="evento">Evento</option>
-                        <option value="condicoes_especiais">Condições Especiais</option>
-                    </select>
+                    <label>Dias do Funil</label>
+                    <input type="text" id="camp-funnel" value="1, 2, 3, 5, 7, 14, 30">
                 </div>
-            </div>
-            <div class="form-group">
-                <label>Dias do Funil (separados por vírgula)</label>
-                <input type="text" id="camp-funnel" placeholder="1, 2, 3, 5, 7, 14, 30" value="1, 2, 3, 5, 7, 14, 30">
             </div>
             <div class="form-row">
                 <div class="form-group">
                     <label>Empreendimento</label>
-                    <input type="text" id="camp-empreendimento" placeholder="Residencial Aurora">
+                    <input type="text" id="camp-empreendimento" placeholder="Residencial Grand Reserva">
                 </div>
                 <div class="form-group">
-                    <label>Destaque</label>
-                    <input type="text" id="camp-destaque" placeholder="Últimas 5 unidades">
+                    <label>Destaque / Benefício</label>
+                    <input type="text" id="camp-destaque" placeholder="Últimas 4 unidades promocionais">
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label>Preço</label>
-                    <input type="text" id="camp-preco" placeholder="A partir de R$ 450.000">
+                    <label>Preço / Condições</label>
+                    <input type="text" id="camp-preco" placeholder="A partir de R$ 890.000">
                 </div>
                 <div class="form-group">
-                    <label>Link</label>
-                    <input type="text" id="camp-link" placeholder="https://...">
+                    <label>Link do Imóvel</label>
+                    <input type="text" id="camp-link" placeholder="https://imob.com/imovel">
                 </div>
             </div>
-            <div class="form-group">
-                <label>Condições</label>
-                <input type="text" id="camp-condicoes" placeholder="Entrada facilitada em até 60x">
-            </div>
-            <button type="submit" class="btn btn-primary btn-full">Criar Campanha</button>
+            <button type="submit" class="btn btn-primary btn-full mt-3">Criar e Ativar Campanha</button>
         </form>
     `);
 }
@@ -540,18 +853,16 @@ async function createCampaign(e) {
             body: {
                 name: document.getElementById('camp-name').value,
                 target_tags: document.getElementById('camp-tags').value,
-                message_template_key: document.getElementById('camp-type').value,
                 funnel_days: funnel.length > 0 ? funnel : undefined,
                 custom_data: {
                     empreendimento: document.getElementById('camp-empreendimento').value,
                     destaque: document.getElementById('camp-destaque').value,
                     preco: document.getElementById('camp-preco').value,
                     link: document.getElementById('camp-link').value,
-                    condicoes: document.getElementById('camp-condicoes').value,
                 },
             }
         });
-        toast('Campanha criada!', 'success');
+        toast('Campanha criada com sucesso!', 'success');
         closeModal();
         loadCampaigns();
     } catch (err) { toast(err.message, 'error'); }
@@ -626,11 +937,7 @@ async function editCampaignModal(id) {
                         <input type="text" id="edit-camp-link" value="${cd.link || ''}">
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Condições</label>
-                    <input type="text" id="edit-camp-cond" value="${cd.condicoes || ''}">
-                </div>
-                <button type="submit" class="btn btn-primary btn-full">Salvar Alterações</button>
+                <button type="submit" class="btn btn-primary btn-full mt-3">Salvar Alterações</button>
             </form>
         `);
     } catch (err) { toast(err.message, 'error'); }
@@ -653,7 +960,6 @@ async function updateCampaign(e, id) {
                     destaque: document.getElementById('edit-camp-dest').value,
                     preco: document.getElementById('edit-camp-preco').value,
                     link: document.getElementById('edit-camp-link').value,
-                    condicoes: document.getElementById('edit-camp-cond').value,
                 },
             }
         });
@@ -665,18 +971,18 @@ async function updateCampaign(e, id) {
 }
 
 async function bulkEnterPool(campaignId) {
-    if (!confirm('Colocar todos os leads elegíveis no bolsão de remarketing desta campanha?')) return;
+    if (!confirm('Jogar todos os leads elegíveis para o início do funil desta campanha?')) return;
     try {
         const data = await api('/api/leads/bulk-pool', {
             method: 'POST',
             body: { campaign_id: campaignId }
         });
-        toast(`${data.entered} leads entraram no bolsão!`, 'success');
+        toast(`${data.entered} leads entraram no bolsão de remarketing!`, 'success');
     } catch (err) { toast(err.message, 'error'); }
 }
 
 // ═══════════════════════════════════════════
-// MESSAGES EDITOR
+// MESSAGES D1...D30
 // ═══════════════════════════════════════════
 
 async function loadMessagesPage() {
@@ -706,17 +1012,17 @@ async function loadCampaignMessages() {
         document.getElementById('messages-editor').innerHTML = funnelDays.map(day => {
             const existing = msgMap[day] || '';
             return `
-                <div class="day-message-card">
-                    <div class="day-label">
-                        <span class="day-number">${day}</span>
-                        Dia ${day} do Remarketing
+                <div class="card mb-3">
+                    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.75rem">
+                        <span style="background:var(--accent);color:#000;width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:bold;font-size:0.82rem">${day}</span>
+                        <strong style="color:var(--accent);font-size:0.95rem">Dia ${day} do Remarketing</strong>
                     </div>
                     <div class="form-group">
-                        <textarea id="msg-day-${day}" placeholder="Mensagem para o dia ${day}... Use {nome}, {empreendimento}, {preco}, {link}, {destaque} como variáveis.\n\nDeixe vazio para usar mensagem automática anti-spam.">${existing}</textarea>
+                        <textarea id="msg-day-${day}" rows="4" placeholder="Mensagem para o dia ${day}... Use {nome}, {empreendimento}, {preco}, {link} como variáveis.">${existing}</textarea>
                     </div>
                     <div style="display:flex;gap:0.5rem">
-                        <button class="btn btn-primary btn-sm" onclick="saveDayMessage('${campId}', ${day})">💾 Salvar</button>
-                        ${existing ? `<button class="btn btn-danger btn-sm" onclick="deleteDayMessage('${campId}', ${day})">🗑️ Remover (usar auto)</button>` : ''}
+                        <button class="btn btn-primary btn-sm" onclick="saveDayMessage('${campId}', ${day})">💾 Salvar Mensagem</button>
+                        ${existing ? `<button class="btn btn-danger btn-sm" onclick="deleteDayMessage('${campId}', ${day})">🗑️ Usar Automática</button>` : ''}
                     </div>
                 </div>
             `;
@@ -726,26 +1032,26 @@ async function loadCampaignMessages() {
 
 async function saveDayMessage(campId, day) {
     const text = document.getElementById(`msg-day-${day}`).value.trim();
-    if (!text) { toast('Escreva uma mensagem', 'error'); return; }
+    if (!text) { toast('Escreva a mensagem antes de salvar', 'error'); return; }
     try {
         await api(`/api/campaigns/${campId}/messages/${day}`, {
             method: 'PUT',
             body: { message_text: text }
         });
-        toast(`Mensagem do dia ${day} salva!`, 'success');
+        toast(`Mensagem do dia ${day} salva com sucesso!`, 'success');
     } catch (err) { toast(err.message, 'error'); }
 }
 
 async function deleteDayMessage(campId, day) {
     try {
         await api(`/api/campaigns/${campId}/messages/${day}`, { method: 'DELETE' });
-        toast(`Dia ${day} voltou para mensagem automática`, 'info');
+        toast(`Dia ${day} voltou para a mensagem inteligente automática`, 'info');
         loadCampaignMessages();
     } catch (err) { toast(err.message, 'error'); }
 }
 
 // ═══════════════════════════════════════════
-// CONTROL
+// CONTROL & LOG
 // ═══════════════════════════════════════════
 
 async function loadControlPage() {
@@ -754,38 +1060,37 @@ async function loadControlPage() {
         const paused = status.engine_paused;
 
         document.getElementById('engine-control').innerHTML = `
-            <div class="engine-toggle">
-                <div class="status-dot ${paused ? 'paused' : 'active'}"></div>
+            <div class="engine-toggle" style="background:var(--bg-input);padding:1.25rem;border-radius:var(--radius-sm);display:flex;align-items:center;gap:1rem;margin-bottom:1rem">
+                <div class="status-pulse-dot" style="background:${paused ? 'var(--warning)' : 'var(--success)'};box-shadow:0 0 10px ${paused ? 'var(--warning)' : 'var(--success)'}"></div>
                 <div style="flex:1">
-                    <strong>${paused ? '⏸️ Motor PAUSADO' : '✅ Motor ATIVO'}</strong>
-                    <div class="text-muted" style="font-size:0.8rem">
-                        ${status.active_campaigns || 0} campanhas ativas | ${status.current_date}
-                    </div>
+                    <strong style="font-size:1rem">${paused ? '⏸️ Motor Geral PAUSADO' : '✅ Motor Geral ATIVO'}</strong>
+                    <div class="text-muted text-sm">${status.active_campaigns || 0} campanhas ativas</div>
                 </div>
                 ${paused
-                    ? `<button class="btn btn-success btn-sm" onclick="engineResume()">▶️ Retomar</button>`
-                    : `<button class="btn btn-danger btn-sm" onclick="enginePause()">⏸️ Pausar</button>`
+                    ? `<button class="btn btn-success btn-sm" onclick="engineResume()">▶️ Retomar Motor</button>`
+                    : `<button class="btn btn-danger btn-sm" onclick="enginePause()">⏸️ Pausar Motor</button>`
                 }
             </div>
         `;
 
-        // Leads pausados
         const leadsData = await api('/api/leads?paused=true&limit=50');
         const pausedLeads = leadsData.leads || [];
 
         if (pausedLeads.length === 0) {
-            document.getElementById('paused-leads-list').innerHTML = '<div class="empty-state"><p>Nenhum lead pausado</p></div>';
+            document.getElementById('paused-leads-list').innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text-muted)">Nenhum lead com pausa individual</div>';
         } else {
             document.getElementById('paused-leads-list').innerHTML = `
                 <div class="table-responsive"><table>
-                    <tr><th>Nome</th><th>Telefone</th><th>Ação</th></tr>
-                    ${pausedLeads.map(l => `
-                        <tr>
-                            <td>${l.name || 'Sem nome'}</td>
-                            <td style="font-family:monospace;font-size:0.8rem">${l.phone}</td>
-                            <td><button class="btn btn-success btn-xs" onclick="resumeLead('${l.id}')">▶️ Retomar</button></td>
-                        </tr>
-                    `).join('')}
+                    <thead><tr><th>Nome</th><th>Telefone</th><th>Ação</th></tr></thead>
+                    <tbody>
+                        ${pausedLeads.map(l => `
+                            <tr>
+                                <td>${l.name || 'Sem nome'}</td>
+                                <td style="font-family:monospace;font-size:0.8rem">${l.phone}</td>
+                                <td><button class="btn btn-success btn-xs" onclick="resumeLead('${l.id}')">▶️ Retomar</button></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
                 </table></div>
             `;
         }
@@ -795,24 +1100,18 @@ async function loadControlPage() {
 async function enginePause() {
     try {
         await api('/api/engine/pause', { method: 'POST' });
-        toast('Motor pausado!', 'info');
+        toast('Motor de disparos pausado!', 'info');
         loadControlPage();
-        loadDashboard();
     } catch (err) { toast(err.message, 'error'); }
 }
 
 async function engineResume() {
     try {
         await api('/api/engine/resume', { method: 'POST' });
-        toast('Motor retomado!', 'success');
+        toast('Motor de disparos retomado com sucesso!', 'success');
         loadControlPage();
-        loadDashboard();
     } catch (err) { toast(err.message, 'error'); }
 }
-
-// ═══════════════════════════════════════════
-// DISPATCH LOG
-// ═══════════════════════════════════════════
 
 async function loadDispatchLog() {
     try {
@@ -820,23 +1119,27 @@ async function loadDispatchLog() {
         const log = data.log || [];
 
         if (log.length === 0) {
-            document.getElementById('dispatch-log-table').innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>Nenhum envio registrado</p></div>';
+            document.getElementById('dispatch-log-table').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">📋 Nenhum registro de envio encontrado</div>';
             return;
         }
 
         document.getElementById('dispatch-log-table').innerHTML = `
             <div class="table-responsive"><table>
-                <tr><th>Data/Hora</th><th>Lead</th><th>Telefone</th><th>Campanha</th><th>Dia</th><th>Status</th></tr>
-                ${log.map(l => `
-                    <tr>
-                        <td style="white-space:nowrap">${formatDateTime(l.sent_at)}</td>
-                        <td>${l.lead_name || '—'}</td>
-                        <td style="font-family:monospace;font-size:0.8rem">${l.lead_phone}</td>
-                        <td>${l.campaign_id}</td>
-                        <td>D${l.remarketing_day || 0}</td>
-                        <td><span class="badge badge-${l.status}">${l.status}</span></td>
-                    </tr>
-                `).join('')}
+                <thead>
+                    <tr><th>Data & Hora</th><th>Lead</th><th>Telefone</th><th>Campanha</th><th>Dia</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                    ${log.map(l => `
+                        <tr>
+                            <td style="white-space:nowrap">${formatDateTime(l.sent_at)}</td>
+                            <td><strong>${l.lead_name || '—'}</strong></td>
+                            <td style="font-family:monospace;font-size:0.8rem">${l.lead_phone}</td>
+                            <td><span class="tag">${l.campaign_id}</span></td>
+                            <td>D${l.remarketing_day || 0}</td>
+                            <td><span class="badge badge-${l.status}">${l.status}</span></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
             </table></div>
         `;
     } catch (err) { console.error(err); }

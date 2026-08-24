@@ -415,14 +415,90 @@ def create_app() -> Flask:
         return jsonify({"log": log})
 
     # ═══════════════════════════════════════════════════════════════
-    # FUNNEL STATS
+    # DIRECT BROADCAST (DISPARO RÁPIDO & TESTE)
     # ═══════════════════════════════════════════════════════════════
 
-    @app.route("/api/funnel/<camp_id>/stats")
+    @app.route("/api/broadcast/start", methods=["POST"])
     @auth_required
-    def api_funnel_stats(camp_id):
-        from core.remarketing_funnel import get_funnel_stats
-        stats = get_funnel_stats(camp_id)
-        return jsonify(stats)
+    def api_broadcast_start():
+        import asyncio
+        from core.direct_broadcast import start_direct_broadcast
+
+        data = request.get_json(silent=True) or {}
+        lead_ids = data.get("lead_ids", [])
+        message_template = data.get("message_template", "").strip()
+        image_url = data.get("image_url", "").strip() or None
+        min_delay = int(data.get("min_delay", 15))
+        max_delay = int(data.get("max_delay", 45))
+        vary_text = bool(data.get("vary_text", True))
+
+        if not lead_ids:
+            return jsonify({"error": "Nenhum lead selecionado."}), 400
+        if not message_template:
+            return jsonify({"error": "Texto da mensagem é obrigatório."}), 400
+
+        # Roda a função assíncrona na thread do Flask
+        success = asyncio.run(
+            start_direct_broadcast(
+                lead_ids=lead_ids,
+                message_template=message_template,
+                image_url=image_url,
+                min_delay=min_delay,
+                max_delay=max_delay,
+                vary_text=vary_text,
+            )
+        )
+
+        if success:
+            return jsonify({"ok": True, "total": len(lead_ids)})
+        return jsonify({"error": "Já existe um disparo em andamento."}), 409
+
+    @app.route("/api/broadcast/status")
+    @auth_required
+    def api_broadcast_status():
+        from core.direct_broadcast import get_broadcast_status
+        return jsonify(get_broadcast_status())
+
+    @app.route("/api/broadcast/cancel", methods=["POST"])
+    @auth_required
+    def api_broadcast_cancel():
+        from core.direct_broadcast import cancel_broadcast
+        if cancel_broadcast():
+            return jsonify({"ok": True, "message": "Cancelamento solicitado."})
+        return jsonify({"error": "Nenhum disparo em andamento para cancelar."}), 400
+
+    # ═══════════════════════════════════════════════════════════════
+    # UPLOAD DE IMAGEM
+    # ═══════════════════════════════════════════════════════════════
+
+    @app.route("/api/upload/image", methods=["POST"])
+    @auth_required
+    def api_upload_image():
+        import uuid
+        import os
+
+        if "image" not in request.files:
+            return jsonify({"error": "Nenhum arquivo enviado"}), 400
+
+        file = request.files["image"]
+        if file.filename == "":
+            return jsonify({"error": "Arquivo vazio"}), 400
+
+        uploads_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
+        os.makedirs(uploads_dir, exist_ok=True)
+
+        ext = os.path.splitext(file.filename)[1].lower()
+        if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
+            return jsonify({"error": "Formato de imagem inválido. Use JPG, PNG ou WEBP"}), 400
+
+        filename = f"img_{uuid.uuid4().hex[:10]}{ext}"
+        filepath = os.path.join(uploads_dir, filename)
+        file.save(filepath)
+
+        # Gera URL completa da imagem baseada no host da requisição
+        host_url = request.host_url.rstrip("/")
+        image_url = f"{host_url}/static/uploads/{filename}"
+
+        return jsonify({"ok": True, "image_url": image_url, "filename": filename})
 
     return app
