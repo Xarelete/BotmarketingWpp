@@ -3,8 +3,7 @@
 BotRemarketingIMOB - WhatsApp Client (Evolution API)
 =============================================================================
 Client para envio de mensagens individuais via Evolution API.
-Garante envio de mídias convertendo qualquer fonte (upload, base64 ou URL)
-em Base64 nativo para envio 100% confiável.
+Retorna tupla (success: bool, error_message: str) com logs detalhados.
 """
 
 import os
@@ -104,17 +103,19 @@ def send_whatsapp_message_sync(
     phone: str,
     text: str,
     image_url: str = None,
-) -> bool:
+) -> Tuple[bool, str]:
     """
     Envia mensagem síncrona via Evolution API.
+    Retorna: (sucesso: bool, mensagem_erro: str)
     """
     api_url = os.getenv("WHATSAPP_API_URL", WHATSAPP_API_URL).rstrip("/")
     instance = os.getenv("WHATSAPP_INSTANCE", WHATSAPP_INSTANCE)
     api_key = os.getenv("WHATSAPP_API_KEY", WHATSAPP_API_KEY)
 
     if not api_url or not instance:
-        logger.warning("Credenciais do WhatsApp não configuradas. Pulando envio.")
-        return False
+        err = "Credenciais do WhatsApp não configuradas (.env)."
+        logger.warning(err)
+        return False, err
 
     dest_number = clean_phone_number(phone)
     headers = {
@@ -143,13 +144,14 @@ def send_whatsapp_message_sync(
                 "linkPreview": False,
             }
 
-        resp = requests.post(endpoint, json=payload, headers=headers, timeout=30)
+        resp = requests.post(endpoint, json=payload, headers=headers, timeout=35)
 
         if resp.status_code in (200, 201):
             logger.info("✅ Mensagem enviada com sucesso para %s!", dest_number)
-            return True
+            return True, "OK"
 
-        logger.warning("⚠️ Evolution API retornou erro (%d): %s", resp.status_code, resp.text)
+        error_detail = f"Evolution API HTTP {resp.status_code}: {resp.text}"
+        logger.warning("⚠️ %s", error_detail)
 
         # Fallback: Se tentou com imagem e falhou, tenta enviar texto puro imediatamente
         if media_data:
@@ -160,16 +162,17 @@ def send_whatsapp_message_sync(
                 "text": text,
                 "linkPreview": False,
             }
-            fb_resp = requests.post(fb_endpoint, json=fb_payload, headers=headers, timeout=20)
+            fb_resp = requests.post(fb_endpoint, json=fb_payload, headers=headers, timeout=25)
             if fb_resp.status_code in (200, 201):
                 logger.info("✅ Fallback de texto enviado com sucesso para %s!", dest_number)
-                return True
+                return True, "Enviado com sucesso (Fallback Texto)"
 
-        return False
+        return False, error_detail
 
     except Exception as e:
-        logger.error("❌ Falha na requisição para WhatsApp (%s): %s", dest_number, e)
-        return False
+        err_msg = f"Exceção na requisição ({dest_number}): {e}"
+        logger.error("❌ %s", err_msg)
+        return False, err_msg
 
 
 async def send_whatsapp_message(
@@ -177,9 +180,10 @@ async def send_whatsapp_message(
     text: str,
     image_url: str = None,
 ) -> bool:
-    """Wrapper assíncrono para compatibilidade."""
+    """Wrapper assíncrono para compatibilidade com o motor de funil."""
     import asyncio
-    return await asyncio.to_thread(send_whatsapp_message_sync, phone, text, image_url)
+    success, _ = await asyncio.to_thread(send_whatsapp_message_sync, phone, text, image_url)
+    return success
 
 
 async def check_whatsapp_connection() -> bool:

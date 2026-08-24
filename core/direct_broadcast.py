@@ -203,7 +203,7 @@ def _run_broadcast_thread(
                 message_text = _apply_subtle_variation(message_text)
 
             # Envia via Evolution API de forma síncrona
-            success = send_whatsapp_message_sync(
+            success, err_detail = send_whatsapp_message_sync(
                 phone=lead_phone,
                 text=message_text,
                 image_url=image_url,
@@ -228,7 +228,7 @@ def _run_broadcast_thread(
                         "lead": lead_name,
                         "phone": format_phone_display(lead_phone),
                         "status": "failed",
-                        "message": "Falha no envio WhatsApp"
+                        "message": err_detail
                     })
 
             # Registra no log do Supabase
@@ -240,6 +240,7 @@ def _run_broadcast_thread(
                     "lead_name": lead_name,
                     "remarketing_day": 0,
                     "status": "sent" if success else "failed",
+                    "error_message": "" if success else err_detail,
                     "sent_at": datetime.now(BR_TZ).isoformat(),
                 }).execute()
             except Exception as err:
