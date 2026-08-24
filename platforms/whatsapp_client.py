@@ -52,51 +52,34 @@ def format_phone_display(phone: str) -> str:
 
 def _get_image_payload(image_source: str) -> Tuple[Optional[str], str]:
     """
-    Converte qualquer imagem (Base64 data URI, arquivo local ou URL externa)
-    em Base64 puro para entrega instantânea sem falhas na Evolution API.
+    Retorna a própria URL pública da imagem e tenta inferir o mimetype.
+    A Evolution API v1/v2 trabalha de forma 100% nativa e segura baixando 
+    a URL pública diretamente, evitando silent drops que ocorrem com base64 puros longos.
     """
     if not image_source:
         return None, "image/jpeg"
 
     image_source = image_source.strip()
-
-    # 1. Se é Data URI Base64 (upload do navegador via FileReader)
+    
+    # Se já for data URI, a API Evolution não aceita bem no sendMedia ou falha no baileys.
+    # Mas como vamos reverter o frontend para mandar URL, isso não deve ocorrer.
     if image_source.startswith("data:image"):
+        logger.warning("Recebido data URI base64, o que não é ideal para Evolution. Tentando extrair puro...")
         try:
             header, b64data = image_source.split(",", 1)
             mime_match = re.search(r'data:(image/\w+);base64', header)
             mimetype = mime_match.group(1) if mime_match else "image/jpeg"
             return b64data, mimetype
-        except Exception as e:
-            logger.error("Erro ao processar data URI base64: %s", e)
+        except Exception:
+            pass
 
-    # 2. Se é arquivo local no servidor
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    if "/static/uploads/" in image_source:
-        filename = image_source.split("/static/uploads/")[-1]
-        local_path = os.path.join(base_dir, "web", "static", "uploads", filename)
-        if os.path.exists(local_path):
-            try:
-                with open(local_path, "rb") as f:
-                    encoded = base64.b64encode(f.read()).decode("utf-8")
-                ext = os.path.splitext(filename)[1].lower().replace(".", "")
-                mimetype = "image/png" if ext == "png" else "image/webp" if ext == "webp" else "image/jpeg"
-                return encoded, mimetype
-            except Exception as e:
-                logger.error("Erro ao ler imagem local para base64: %s", e)
+    # Inferindo mimetype pela extensão
+    ext = image_source.split(".")[-1].lower() if "." in image_source[-6:] else "jpeg"
+    mimetype = f"image/{ext}" if ext in ["png", "webp", "jpeg", "jpg"] else "image/jpeg"
+    if ext == "jpg":
+        mimetype = "image/jpeg"
 
-    # 3. Se é URL externa (baixa diretamente e converte para base64)
-    if image_source.startswith("http://") or image_source.startswith("https://"):
-        try:
-            resp = requests.get(image_source, timeout=12)
-            if resp.status_code == 200:
-                encoded = base64.b64encode(resp.content).decode("utf-8")
-                mimetype = resp.headers.get("Content-Type", "image/jpeg").split(";")[0]
-                return encoded, mimetype
-        except Exception as e:
-            logger.error("Erro ao baixar URL externa para base64 (%s): %s", image_source, e)
-
-    return None, "image/jpeg"
+    return image_source, mimetype
 
 
 def send_whatsapp_message_sync(
