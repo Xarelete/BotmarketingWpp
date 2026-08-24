@@ -427,30 +427,16 @@ async function handleImageSelected(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Preview imediato via FileReader
+    // Converte imediatamente para Base64 Data URI
     const reader = new FileReader();
     reader.onload = (event) => {
-        currentUploadedImageUrl = event.target.result;
-        updateWhatsappPreview();
-    };
-    reader.readAsDataURL(file);
-
-    const formData = new FormData();
-    formData.append('image', file);
-
-    try {
-        toast('Fazendo upload da imagem...', 'info');
-        const data = await api('/api/upload/image', { method: 'POST', body: formData });
-        currentUploadedImageUrl = data.image_url;
-
+        currentUploadedImageUrl = event.target.result; // Data URI completo em Base64
         const badge = document.getElementById('bc-image-preview-badge');
         if (badge) badge.classList.remove('hidden');
-
         updateWhatsappPreview();
         toast('Imagem carregada com sucesso!', 'success');
-    } catch (err) {
-        toast(err.message, 'error');
-    }
+    };
+    reader.readAsDataURL(file);
 }
 
 function clearSelectedImage() {

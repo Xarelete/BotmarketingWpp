@@ -3,8 +3,8 @@
 BotRemarketingIMOB - WhatsApp Client (Evolution API)
 =============================================================================
 Client para envio de mensagens individuais via Evolution API.
-Suporta envio de texto simples e envio de mídia (com suporte nativo a Base64
-para imagens locais ou URLs externas).
+Garante envio de mídias convertendo qualquer fonte (upload, base64 ou URL)
+em Base64 nativo para envio 100% confiável.
 """
 
 import os
@@ -43,34 +43,35 @@ def format_phone_display(phone: str) -> str:
     """
     digits = clean_phone_number(phone)
     if digits.startswith("55") and len(digits) == 13:
-        # Celular Brasil 9 dígitos: 55 + DDD (2) + 9 + 4
         return f"+55 ({digits[2:4]}) {digits[4:9]}-{digits[9:]}"
     elif digits.startswith("55") and len(digits) == 12:
-        # Fixo Brasil 8 dígitos: 55 + DDD (2) + 4 + 4
         return f"+55 ({digits[2:4]}) {digits[4:8]}-{digits[8:]}"
     elif len(digits) == 11:
         return f"({digits[0:2]}) {digits[2:7]}-{digits[7:]}"
     return digits
 
 
-def _get_image_payload(image_source: str) -> tuple[Optional[str], str]:
+def _get_image_payload(image_source: str) -> Tuple[Optional[str], str]:
     """
-    Processa a fonte da imagem e retorna (media_data, mimetype).
-    Converte arquivos locais ou URLs locais em Base64 para garantir entrega.
+    Converte qualquer imagem (Base64 data URI, arquivo local ou URL externa)
+    em Base64 puro para entrega instantânea sem falhas na Evolution API.
     """
     if not image_source:
         return None, "image/jpeg"
 
     image_source = image_source.strip()
 
-    # Se já é base64 puro ou data URI
+    # 1. Se é Data URI Base64 (upload do navegador via FileReader)
     if image_source.startswith("data:image"):
-        parts = image_source.split(",")
-        mime_match = re.search(r'data:(image/\w+);base64', parts[0])
-        mimetype = mime_match.group(1) if mime_match else "image/jpeg"
-        return parts[1], mimetype
+        try:
+            header, b64data = image_source.split(",", 1)
+            mime_match = re.search(r'data:(image/\w+);base64', header)
+            mimetype = mime_match.group(1) if mime_match else "image/jpeg"
+            return b64data, mimetype
+        except Exception as e:
+            logger.error("Erro ao processar data URI base64: %s", e)
 
-    # Se é um arquivo local em static/uploads
+    # 2. Se é arquivo local no servidor
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if "/static/uploads/" in image_source:
         filename = image_source.split("/static/uploads/")[-1]
@@ -85,10 +86,16 @@ def _get_image_payload(image_source: str) -> tuple[Optional[str], str]:
             except Exception as e:
                 logger.error("Erro ao ler imagem local para base64: %s", e)
 
-    # Se é URL pública HTTP/HTTPS que não seja localhost
+    # 3. Se é URL externa (baixa diretamente e converte para base64)
     if image_source.startswith("http://") or image_source.startswith("https://"):
-        if "localhost" not in image_source and "127.0.0.1" not in image_source:
-            return image_source, "image/jpeg"
+        try:
+            resp = requests.get(image_source, timeout=12)
+            if resp.status_code == 200:
+                encoded = base64.b64encode(resp.content).decode("utf-8")
+                mimetype = resp.headers.get("Content-Type", "image/jpeg").split(";")[0]
+                return encoded, mimetype
+        except Exception as e:
+            logger.error("Erro ao baixar URL externa para base64 (%s): %s", image_source, e)
 
     return None, "image/jpeg"
 
@@ -136,15 +143,15 @@ def send_whatsapp_message_sync(
                 "linkPreview": False,
             }
 
-        resp = requests.post(endpoint, json=payload, headers=headers, timeout=25)
+        resp = requests.post(endpoint, json=payload, headers=headers, timeout=30)
 
         if resp.status_code in (200, 201):
             logger.info("✅ Mensagem enviada com sucesso para %s!", dest_number)
             return True
 
-        logger.warning("⚠️ Evolution API retornou (%d): %s", resp.status_code, resp.text)
+        logger.warning("⚠️ Evolution API retornou erro (%d): %s", resp.status_code, resp.text)
 
-        # Fallback: Se tentou com imagem e falhou, tenta enviar o texto puro
+        # Fallback: Se tentou com imagem e falhou, tenta enviar texto puro imediatamente
         if media_data:
             logger.info("🔄 Tentando fallback para envio de texto simples...")
             fb_endpoint = f"{api_url}/message/sendText/{instance}"
