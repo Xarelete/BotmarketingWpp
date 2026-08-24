@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+data/leads.json
+data/campaigns.json
+data/dispatch_history.json
+data/engine_state.json
+*.log
