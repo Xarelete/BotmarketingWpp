@@ -72,13 +72,27 @@ async function api(url, options = {}) {
     }
     try {
         const resp = await fetch(url, opts);
+
+        if (resp.status === 401) {
+            showLogin();
+            throw new Error('Sessão expirada. Por favor, faça login novamente.');
+        }
+
+        const contentType = resp.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            if (!resp.ok) {
+                if (resp.status === 404) {
+                    throw new Error('Servidor precisa ser reiniciado para carregar as novas rotas. Reinicie o python main.py no terminal.');
+                }
+                throw new Error(`Servidor retornou erro HTTP ${resp.status}. O serviço pode estar reiniciando.`);
+            }
+            return { ok: true };
+        }
+
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || `Erro ${resp.status}`);
         return data;
     } catch (err) {
-        if (err.message.includes('Não autenticado') || err.message.includes('401')) {
-            showLogin();
-        }
         throw err;
     }
 }
