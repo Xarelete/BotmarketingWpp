@@ -421,34 +421,39 @@ def create_app() -> Flask:
     @app.route("/api/broadcast/start", methods=["POST"])
     @auth_required
     def api_broadcast_start():
-        from core.direct_broadcast import start_direct_broadcast
+        try:
+            from core.direct_broadcast import start_direct_broadcast
 
-        data = request.get_json(silent=True) or {}
-        lead_ids = data.get("lead_ids", [])
-        message_template = data.get("message_template", "").strip()
-        image_url = data.get("image_url", "").strip() or None
-        min_delay = int(data.get("min_delay", 15))
-        max_delay = int(data.get("max_delay", 40))
-        vary_text = bool(data.get("vary_text", True))
+            data = request.get_json(silent=True) or {}
+            lead_ids = data.get("lead_ids", [])
+            message_template = str(data.get("message_template") or "").strip()
+            raw_image_url = data.get("image_url")
+            image_url = str(raw_image_url).strip() if raw_image_url else None
+            min_delay = int(data.get("min_delay") or 15)
+            max_delay = int(data.get("max_delay") or 40)
+            vary_text = bool(data.get("vary_text", True))
 
-        if not lead_ids:
-            return jsonify({"error": "Nenhum lead selecionado."}), 400
-        if not message_template:
-            return jsonify({"error": "Texto da mensagem é obrigatório."}), 400
+            if not lead_ids:
+                return jsonify({"error": "Nenhum lead selecionado."}), 400
+            if not message_template:
+                return jsonify({"error": "Texto da mensagem é obrigatório."}), 400
 
-        # Inicia a fila em thread separada segura
-        success = start_direct_broadcast(
-            lead_ids=lead_ids,
-            message_template=message_template,
-            image_url=image_url,
-            min_delay=min_delay,
-            max_delay=max_delay,
-            vary_text=vary_text,
-        )
+            # Inicia a fila em thread separada segura
+            success = start_direct_broadcast(
+                lead_ids=lead_ids,
+                message_template=message_template,
+                image_url=image_url,
+                min_delay=min_delay,
+                max_delay=max_delay,
+                vary_text=vary_text,
+            )
 
-        if success:
-            return jsonify({"ok": True, "total": len(lead_ids)})
-        return jsonify({"error": "Já existe um disparo em andamento."}), 409
+            if success:
+                return jsonify({"ok": True, "total": len(lead_ids)})
+            return jsonify({"error": "Já existe um disparo em andamento. Aguarde finalizar ou cancele antes de iniciar outro."}), 409
+        except Exception as e:
+            logger.error("❌ Erro interno ao iniciar disparo direto: %s", e, exc_info=True)
+            return jsonify({"error": f"Erro interno no servidor: {str(e)}"}), 500
 
     @app.route("/api/broadcast/status")
     @auth_required
