@@ -377,6 +377,48 @@ def create_app() -> Flask:
             return jsonify({"ok": True})
         return jsonify({"error": "Mensagem não encontrada"}), 404
 
+    @app.route("/api/campaigns/<camp_id>/dispatch-one", methods=["POST"])
+    @auth_required
+    def api_campaigns_dispatch_one(camp_id):
+        import asyncio
+        from core.dispatch_engine import force_dispatch_one
+        result = asyncio.run(force_dispatch_one(camp_id))
+        if result:
+            return jsonify({"ok": True, "lead_name": result})
+        return jsonify({"error": "Sem leads elegíveis no momento ou todos já receberam mensagem hoje nesta campanha."}), 400
+
+    @app.route("/api/leads/<lead_id>/test-message", methods=["POST"])
+    @auth_required
+    def api_leads_test_message(lead_id):
+        from core.lead_manager import get_lead
+        from platforms.whatsapp_client import send_whatsapp_message_sync
+
+        lead = get_lead(lead_id)
+        if not lead:
+            return jsonify({"error": "Lead não encontrado"}), 404
+
+        data = request.get_json(silent=True) or {}
+        custom_text = data.get("text", "").strip()
+        first_name = (lead.get("name") or "").split()[0] if lead.get("name") else "cliente"
+        text = custom_text or f"🤖 Olá {first_name}, este é um teste de conexão do Bot Remarketing IMOB!"
+
+        success, err = send_whatsapp_message_sync(lead["phone"], text)
+        if success:
+            return jsonify({"ok": True, "phone": lead["phone"], "message": text})
+        return jsonify({"error": f"Falha no envio: {err}"}), 500
+
+    @app.route("/api/whatsapp/status")
+    @auth_required
+    def api_whatsapp_status():
+        import asyncio
+        from platforms.whatsapp_client import check_whatsapp_connection, WHATSAPP_INSTANCE, WHATSAPP_API_URL
+        is_connected = asyncio.run(check_whatsapp_connection())
+        return jsonify({
+            "connected": is_connected,
+            "instance": WHATSAPP_INSTANCE,
+            "api_url": WHATSAPP_API_URL,
+        })
+
     # ═══════════════════════════════════════════════════════════════
     # ENGINE CONTROL
     # ═══════════════════════════════════════════════════════════════

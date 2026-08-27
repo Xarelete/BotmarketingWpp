@@ -141,6 +141,22 @@ function showApp() {
     document.getElementById('app').classList.remove('hidden');
     loadDashboard();
     checkActiveBroadcast();
+    checkWhatsAppStatus();
+}
+
+async function checkWhatsAppStatus() {
+    try {
+        const data = await api('/api/whatsapp/status');
+        const dot = document.getElementById('wpp-status-dot');
+        const label = document.getElementById('wpp-status-label');
+        if (data.connected) {
+            if (dot) dot.style.background = 'var(--success)';
+            if (label) label.textContent = 'WhatsApp Conectado';
+        } else {
+            if (dot) dot.style.background = 'var(--danger)';
+            if (label) label.textContent = 'WhatsApp Desconectado';
+        }
+    } catch { }
 }
 
 async function handleLogin(e) {
@@ -641,12 +657,13 @@ async function loadLeads() {
                             </td>
                             <td>
                                 <div style="display:flex;gap:0.35rem">
+                                    <button class="btn btn-secondary btn-xs" title="Enviar Mensagem de Teste no WhatsApp" onclick="testLeadMessageModal('${l.id}', '${l.name || ''}', '${l.phone}')">💬 Testar</button>
                                     ${l.paused
-                                        ? `<button class="btn btn-success btn-xs" onclick="resumeLead('${l.id}')">▶️</button>`
-                                        : `<button class="btn btn-secondary btn-xs" onclick="pauseLead('${l.id}')">⏸️</button>`
+                                        ? `<button class="btn btn-success btn-xs" title="Retomar Envios" onclick="resumeLead('${l.id}')">▶️</button>`
+                                        : `<button class="btn btn-secondary btn-xs" title="Pausar Envios" onclick="pauseLead('${l.id}')">⏸️</button>`
                                     }
-                                    <button class="btn btn-secondary btn-xs" onclick="editLeadModal('${l.id}')">✏️</button>
-                                    <button class="btn btn-danger btn-xs" onclick="deleteLead('${l.id}')">🗑️</button>
+                                    <button class="btn btn-secondary btn-xs" title="Editar Lead" onclick="editLeadModal('${l.id}')">✏️</button>
+                                    <button class="btn btn-danger btn-xs" title="Remover Lead" onclick="deleteLead('${l.id}')">🗑️</button>
                                 </div>
                             </td>
                         </tr>
@@ -800,6 +817,67 @@ async function resetFunnel(id) {
     } catch (err) { toast(err.message, 'error'); }
 }
 
+function testLeadMessageModal(id, name, phone) {
+    const displayName = name || 'Lead';
+    const formattedPhone = formatPhoneDisplay(phone);
+    const firstName = name ? name.split(' ')[0] : 'amigo(a)';
+    const defaultText = `🤖 Olá ${firstName}, este é um teste de conexão do Bot Remarketing IMOB!`;
+
+    openModal(`Testar Envio no WhatsApp: ${displayName}`, `
+        <form onsubmit="return sendLeadTestMessage(event, '${id}')">
+            <div class="form-group">
+                <label>Destinatário</label>
+                <div style="font-family:monospace;color:var(--accent);font-weight:600;margin-bottom:0.75rem">${displayName} (${formattedPhone})</div>
+            </div>
+            <div class="form-group">
+                <label>Texto da Mensagem de Teste</label>
+                <textarea id="lead-test-text" rows="4" required>${defaultText}</textarea>
+            </div>
+            <button type="submit" id="btn-send-lead-test" class="btn btn-primary btn-full">🚀 Enviar Mensagem Agora</button>
+        </form>
+    `);
+}
+
+async function sendLeadTestMessage(e, id) {
+    e.preventDefault();
+    const text = document.getElementById('lead-test-text')?.value.trim();
+    if (!text) { toast('Digite o texto da mensagem', 'error'); return false; }
+
+    const btn = document.getElementById('btn-send-lead-test');
+    if (btn) { btn.disabled = true; btn.textContent = 'Enviando... ⏳'; }
+
+    try {
+        toast('Enviando mensagem via WhatsApp...', 'info');
+        const res = await api(`/api/leads/${id}/test-message`, {
+            method: 'POST',
+            body: { text }
+        });
+        toast(`✅ Mensagem enviada com sucesso para ${formatPhoneDisplay(res.phone)}!`, 'success');
+        closeModal();
+    } catch (err) {
+        toast(`Erro no envio: ${err.message}`, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🚀 Enviar Mensagem Agora'; }
+    }
+    return false;
+}
+
+async function forceDispatchCampaign(campId, campName) {
+    if (!confirm(`⚡ Deseja forçar o envio imediato de 1 mensagem do funil da campanha "${campName}" para o próximo lead elegível?`)) {
+        return;
+    }
+
+    try {
+        toast(`Processando disparo para a campanha "${campName}"...`, 'info');
+        const res = await api(`/api/campaigns/${campId}/dispatch-one`, { method: 'POST' });
+        toast(`✅ Disparo realizado com sucesso para: ${res.lead_name}`, 'success');
+        loadCampaigns();
+        loadDashboard();
+    } catch (err) {
+        toast(err.message, 'error');
+    }
+}
+
 function showImportModal() {
     openModal('Importar Lista de Leads', `
         <div class="form-group">
@@ -857,6 +935,7 @@ async function loadCampaigns() {
                         <span>📅 Dias do Funil: D${funnelDays}</span>
                     </div>
                     <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+                        <button class="btn btn-primary btn-xs" title="Disparar para 1 lead elegível agora" onclick="forceDispatchCampaign('${c.id}', '${c.name}')">⚡ Forçar 1 Disparo</button>
                         ${isActive
                             ? `<button class="btn btn-secondary btn-xs" onclick="pauseCampaign('${c.id}')">⏸️ Pausar</button>`
                             : `<button class="btn btn-success btn-xs" onclick="resumeCampaign('${c.id}')">▶️ Retomar</button>`
