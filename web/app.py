@@ -539,9 +539,8 @@ def create_app() -> Flask:
         filepath = os.path.join(uploads_dir, filename)
         file.save(filepath)
 
-        # Gera URL completa da imagem baseada no host da requisição
-        host_url = request.host_url.rstrip("/")
-        image_url = f"{host_url}/static/uploads/{filename}"
+        # Usa URL relativa para forçar o fallback de leitura local (base64) no envio
+        image_url = f"/static/uploads/{filename}"
 
         return jsonify({"ok": True, "image_url": image_url, "filename": filename})
 
