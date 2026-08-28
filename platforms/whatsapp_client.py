@@ -66,7 +66,7 @@ def _get_image_payload(image_source: str) -> Tuple[Optional[str], str]:
             header, b64data = image_source.split(",", 1)
             mime_match = re.search(r'data:(image/\w+);base64', header)
             mimetype = mime_match.group(1) if mime_match else "image/jpeg"
-            return b64data, mimetype
+            return image_source, mimetype
         except Exception:
             pass
 
@@ -82,7 +82,7 @@ def _get_image_payload(image_source: str) -> Tuple[Optional[str], str]:
                     encoded = base64.b64encode(f.read()).decode("utf-8")
                 ext = os.path.splitext(filename)[1].lower().replace(".", "")
                 mimetype = "image/png" if ext == "png" else "image/webp" if ext == "webp" else "image/jpeg"
-                return encoded, mimetype
+                return f"data:{mimetype};base64,{encoded}", mimetype
             except Exception as e:
                 logger.error("Erro ao converter local_path para base64: %s", e)
 
@@ -126,6 +126,17 @@ def send_whatsapp_message_sync(
             endpoint = f"{api_url}/message/sendMedia/{instance}"
             payload = {
                 "number": dest_number,
+                "options": {
+                    "delay": 1500,
+                    "presence": "composing"
+                },
+                "mediaMessage": {
+                    "mediatype": "image",
+                    "caption": text,
+                    "media": media_data,
+                    "fileName": "imovel.jpg"
+                },
+                # Fallback V1
                 "mediatype": "image",
                 "mimetype": mimetype,
                 "caption": text,
@@ -136,6 +147,15 @@ def send_whatsapp_message_sync(
             endpoint = f"{api_url}/message/sendText/{instance}"
             payload = {
                 "number": dest_number,
+                "options": {
+                    "delay": 1500,
+                    "presence": "composing",
+                    "linkPreview": False
+                },
+                "textMessage": {
+                    "text": text
+                },
+                # Fallback V1
                 "text": text,
                 "linkPreview": False,
             }
@@ -155,6 +175,15 @@ def send_whatsapp_message_sync(
             fb_endpoint = f"{api_url}/message/sendText/{instance}"
             fb_payload = {
                 "number": dest_number,
+                "options": {
+                    "delay": 1500,
+                    "presence": "composing",
+                    "linkPreview": False
+                },
+                "textMessage": {
+                    "text": text
+                },
+                # Fallback V1
                 "text": text,
                 "linkPreview": False,
             }
