@@ -11,4 +11,3 @@ web/static/uploads/*
 .venv/
 .postman/
 node_modules/
-Aplicativo/node_modules/
