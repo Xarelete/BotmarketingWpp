@@ -8,4 +8,5 @@ data/engine_state.json
 *.log
 web/static/uploads/*
 !web/static/uploads/.gitkeep
+.venv/
 

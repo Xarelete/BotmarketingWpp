@@ -410,13 +410,42 @@ def create_app() -> Flask:
     @app.route("/api/whatsapp/status")
     @auth_required
     def api_whatsapp_status():
-        import asyncio
-        from platforms.whatsapp_client import check_whatsapp_connection, WHATSAPP_INSTANCE, WHATSAPP_API_URL
-        is_connected = asyncio.run(check_whatsapp_connection())
+        from platforms.whatsapp_client import check_whatsapp_connection_sync, get_active_instance, WHATSAPP_API_URL
+        target_instance = request.args.get("instance") or get_active_instance()
+        is_connected, status_msg = check_whatsapp_connection_sync(target_instance)
         return jsonify({
             "connected": is_connected,
-            "instance": WHATSAPP_INSTANCE,
+            "message": status_msg,
+            "instance": target_instance,
             "api_url": WHATSAPP_API_URL,
+        })
+
+    @app.route("/api/whatsapp/instances")
+    @auth_required
+    def api_whatsapp_instances():
+        from platforms.whatsapp_client import list_whatsapp_instances, get_active_instance
+        instances = list_whatsapp_instances()
+        active = get_active_instance()
+        return jsonify({
+            "instances": instances,
+            "active_instance": active,
+        })
+
+    @app.route("/api/whatsapp/select-instance", methods=["POST"])
+    @auth_required
+    def api_whatsapp_select_instance():
+        from platforms.whatsapp_client import set_active_instance, check_whatsapp_connection_sync
+        data = request.get_json(silent=True) or {}
+        instance_name = str(data.get("instance") or "").strip()
+        if not instance_name:
+            return jsonify({"error": "Nome da instância é obrigatório"}), 400
+        set_active_instance(instance_name)
+        is_connected, msg = check_whatsapp_connection_sync(instance_name)
+        return jsonify({
+            "ok": True,
+            "active_instance": instance_name,
+            "connected": is_connected,
+            "message": msg,
         })
 
     # ═══════════════════════════════════════════════════════════════
@@ -465,6 +494,7 @@ def create_app() -> Flask:
     def api_broadcast_start():
         try:
             from core.direct_broadcast import start_direct_broadcast
+            from platforms.whatsapp_client import check_whatsapp_connection_sync, get_active_instance
 
             data = request.get_json(silent=True) or {}
             lead_ids = data.get("lead_ids", [])
@@ -474,11 +504,18 @@ def create_app() -> Flask:
             min_delay = int(data.get("min_delay") or 15)
             max_delay = int(data.get("max_delay") or 40)
             vary_text = bool(data.get("vary_text", True))
+            vary_synonyms = bool(data.get("vary_synonyms", True))
+            selected_instance = str(data.get("instance") or "").strip() or get_active_instance()
 
             if not lead_ids:
                 return jsonify({"error": "Nenhum lead selecionado."}), 400
             if not message_template:
                 return jsonify({"error": "Texto da mensagem é obrigatório."}), 400
+
+            # Pré-validação da conexão com o WhatsApp / Evolution API
+            is_connected, status_msg = check_whatsapp_connection_sync(selected_instance)
+            if not is_connected:
+                return jsonify({"error": f"⚠️ Não foi possível iniciar o disparo: {status_msg}"}), 503
 
             # Inicia a fila em thread separada segura
             success = start_direct_broadcast(
@@ -488,6 +525,8 @@ def create_app() -> Flask:
                 min_delay=min_delay,
                 max_delay=max_delay,
                 vary_text=vary_text,
+                vary_synonyms=vary_synonyms,
+                instance=selected_instance,
             )
 
             if success:
@@ -496,6 +535,27 @@ def create_app() -> Flask:
         except Exception as e:
             logger.error("❌ Erro interno ao iniciar disparo direto: %s", e, exc_info=True)
             return jsonify({"error": f"Erro interno no servidor: {str(e)}"}), 500
+
+    @app.route("/api/broadcast/preview", methods=["POST"])
+    @auth_required
+    def api_broadcast_preview():
+        from core.direct_broadcast import preview_humanized_message
+        from core.lead_manager import get_lead
+
+        data = request.get_json(silent=True) or {}
+        message_template = str(data.get("message_template") or "").strip()
+        lead_id = data.get("lead_id")
+        sample_lead = get_lead(lead_id) if lead_id else {"name": "", "phone": "5512988265141"}
+        vary_synonyms = bool(data.get("vary_synonyms", True))
+        vary_text = bool(data.get("vary_text", True))
+
+        preview = preview_humanized_message(
+            template=message_template,
+            sample_lead=sample_lead,
+            vary_synonyms=vary_synonyms,
+            vary_text=vary_text,
+        )
+        return jsonify({"ok": True, "preview": preview})
 
     @app.route("/api/broadcast/status")
     @auth_required

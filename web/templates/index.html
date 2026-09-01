@@ -147,6 +147,17 @@
                     <div class="broadcast-form-col">
                         <div class="card">
                             <h3>1. Mensagem & Imagem</h3>
+
+                            <div class="form-group mb-3">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.35rem">
+                                    <label style="margin-bottom:0">📱 Número / Instância Remetente *</label>
+                                    <span id="instance-badge-status" class="badge badge-active" style="font-size:0.7rem">Conectado</span>
+                                </div>
+                                <select id="bc-instance-select" onchange="handleInstanceChange(this.value)" style="font-weight:600;color:var(--accent)">
+                                    <option value="">Carregando números disponíveis...</option>
+                                </select>
+                                <span class="help-text">Selecione por qual número do WhatsApp este disparo em massa será enviado.</span>
+                            </div>
                             
                             <div class="form-group">
                                 <div class="label-with-tags">
@@ -154,11 +165,12 @@
                                     <div class="tag-insert-buttons">
                                         <button type="button" class="btn-tag" onclick="insertTag('{primeiro_nome}')">+ Nome</button>
                                         <button type="button" class="btn-tag" onclick="insertTag('{telefone}')">+ Telefone</button>
-                                        <button type="button" class="btn-tag" onclick="insertTag('{Olá|Oi|Tudo bem?}')">+ Variação</button>
+                                        <button type="button" class="btn-tag" onclick="insertTag('{Olá|Oi|Tudo bem?}')">+ Spintax</button>
+                                        <button type="button" class="btn-tag btn-tag-highlight" onclick="loadDefaultTemplate()">✨ Modelo Humanizado</button>
                                     </div>
                                 </div>
-                                <textarea id="bc-message-text" rows="5" placeholder="Olá {primeiro_nome}, tudo bem? &#10;&#10;Passando para te mostrar uma oportunidade exclusiva de imóvel que acabou de entrar no nosso portfólio! &#10;&#10;Gostaria de receber as fotos e condições?" oninput="updateWhatsappPreview()"></textarea>
-                                <span class="help-text">Dica: Use <code>{nome}</code> para personalizar o nome ou <code>{Olá|Oi}</code> para spintax anti-spam.</span>
+                                <textarea id="bc-message-text" rows="6" placeholder="Olá {primeiro_nome}, tudo bem? &#10;&#10;Passando aqui para te mostrar uma oportunidade exclusiva de imóvel que acabou de entrar no nosso portfólio! &#10;&#10;Gostaria de receber as fotos e condições? Me avisa aqui!" oninput="updateWhatsappPreview()"></textarea>
+                                <span class="help-text">💡 Dica: Se o lead não tiver nome cadastrado, o sistema ajusta a saudação automaticamente de forma fluida (sem espaços vazios nem textos robóticos).</span>
                             </div>
 
                             <div class="form-group mt-3">
@@ -185,12 +197,24 @@
                                 </div>
                             </div>
 
-                            <div class="form-checkbox-row mt-2">
-                                <label class="checkbox-container">
-                                    <input type="checkbox" id="bc-vary-text" checked>
-                                    <span class="checkmark"></span>
-                                    Aplicar leve variação automática de emojis e pontuação anti-bloqueio
-                                </label>
+                            <div class="humanizer-options-box mt-3">
+                                <div class="form-checkbox-row">
+                                    <label class="checkbox-container">
+                                        <input type="checkbox" id="bc-vary-synonyms" checked onchange="updateWhatsappPreview()">
+                                        <span class="checkmark"></span>
+                                        <strong>✨ Humanizador de Palavras & Sinônimos (Anti-Spam)</strong>
+                                    </label>
+                                    <span class="help-text pl-6">Troca termos como <em>"Olá"</em> por <em>"Oi"</em>, <em>"passando para te mostrar"</em> por <em>"quis te apresentar"</em>, <em>"fotos e condições"</em> por <em>"detalhes e fotos"</em> mantendo 100% o sentido e tom natural.</span>
+                                </div>
+
+                                <div class="form-checkbox-row mt-2">
+                                    <label class="checkbox-container">
+                                        <input type="checkbox" id="bc-vary-text" checked onchange="updateWhatsappPreview()">
+                                        <span class="checkmark"></span>
+                                        <strong>🎭 Variação de Emojis e Pontuação</strong>
+                                    </label>
+                                    <span class="help-text pl-6">Altera pontuação e adiciona sutis emojis no final de cada mensagem para gerar hashes únicos no WhatsApp.</span>
+                                </div>
                             </div>
                         </div>
 
@@ -238,12 +262,14 @@
                                 <span class="phone-speaker"></span>
                             </div>
                             <div class="whatsapp-chat-header">
-                                <div class="chat-avatar">👤</div>
+                                <div class="chat-avatar" id="preview-avatar">👤</div>
                                 <div class="chat-contact-info">
-                                    <strong id="preview-contact-name">João Silva (Cliente)</strong>
-                                    <span>online</span>
+                                    <strong id="preview-contact-name">Lead Sem Nome (+55 12...)</strong>
+                                    <span id="preview-contact-status">online</span>
                                 </div>
-                                <div class="chat-actions">📞 📹 ⋮</div>
+                                <button type="button" class="btn btn-xs btn-primary btn-sim-dice" title="Gerar nova variação de sinônimos" onclick="generateRandomPreview()">
+                                    🎲 Testar Variação
+                                </button>
                             </div>
                             <div class="whatsapp-chat-body">
                                 <div class="chat-date-pill">HOJE</div>
@@ -255,7 +281,7 @@
                                     </div>
                                     <!-- PREVIEW DO TEXTO -->
                                     <div id="preview-message-text" class="preview-text">
-                                        Olá João, tudo bem? &#10;&#10;Passando para te mostrar uma oportunidade exclusiva de imóvel que acabou de entrar no nosso portfólio!
+                                        Olá, tudo bem? &#10;&#10;Passando aqui para te mostrar uma oportunidade exclusiva de imóvel que acabou de entrar no nosso portfólio! &#10;&#10;Gostaria de receber as fotos e condições? Me avisa aqui!
                                     </div>
                                     <div class="bubble-meta">
                                         <span id="preview-time">12:00</span>

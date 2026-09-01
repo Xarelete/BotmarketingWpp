@@ -1,16 +1,19 @@
 """
 =============================================================================
-BotRemarketingIMOB - WhatsApp Client (Evolution API)
+BotRemarketingIMOB - WhatsApp Client (Evolution API Multi-Instâncias)
 =============================================================================
-Client para envio de mensagens individuais via Evolution API.
-Retorna tupla (success: bool, error_message: str) com logs detalhados.
+Client para envio de mensagens individuais via Evolution API com suporte a:
+  • Multi-instâncias / Seleção dinâmica de números remetentes
+  • Listagem de instâncias disponíveis e status de conexão
+  • Envio de texto e imagem (base64 / URL) com fallback
+  • Diagnóstico detalhado de erros de conexão e Render
 """
 
 import os
 import re
 import base64
 import logging
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List, Dict, Any
 import requests
 from dotenv import load_dotenv
 
@@ -22,6 +25,89 @@ logger = logging.getLogger(__name__)
 WHATSAPP_API_URL = os.getenv("WHATSAPP_API_URL", "").rstrip("/")
 WHATSAPP_INSTANCE = os.getenv("WHATSAPP_INSTANCE", "")
 WHATSAPP_API_KEY = os.getenv("WHATSAPP_API_KEY", "")
+
+
+def get_active_instance() -> str:
+    """Retorna a instância do WhatsApp ativa (do Supabase ou do .env)."""
+    try:
+        from database import get_supabase
+        sb = get_supabase()
+        res = sb.table("engine_state").select("value").eq("key", "active_whatsapp_instance").execute()
+        if res.data and res.data[0].get("value"):
+            return res.data[0]["value"].strip()
+    except Exception as e:
+        logger.debug("Falha ao ler active_whatsapp_instance do banco: %s", e)
+    
+    return os.getenv("WHATSAPP_INSTANCE", WHATSAPP_INSTANCE)
+
+
+def set_active_instance(instance_name: str) -> bool:
+    """Define a instância ativa padrão no banco de dados Supabase."""
+    if not instance_name:
+        return False
+    try:
+        from database import get_supabase
+        sb = get_supabase()
+        sb.table("engine_state").upsert({
+            "key": "active_whatsapp_instance",
+            "value": instance_name.strip()
+        }).execute()
+        logger.info("Instância ativa alterada para: %s", instance_name)
+        return True
+    except Exception as e:
+        logger.error("Erro ao salvar active_whatsapp_instance: %s", e)
+        return False
+
+
+def list_whatsapp_instances() -> List[Dict[str, Any]]:
+    """
+    Busca todas as instâncias cadastradas na Evolution API e seus status de conexão.
+    """
+    api_url = os.getenv("WHATSAPP_API_URL", WHATSAPP_API_URL).rstrip("/")
+    api_key = os.getenv("WHATSAPP_API_KEY", WHATSAPP_API_KEY)
+    active_inst = get_active_instance()
+
+    if not api_url:
+        return []
+
+    try:
+        headers = {"apikey": api_key, "User-Agent": "Mozilla/5.0"}
+        resp = requests.get(f"{api_url}/instance/fetchInstances", headers=headers, timeout=12)
+        if resp.status_code != 200:
+            logger.warning("Falha ao buscar instâncias: HTTP %d", resp.status_code)
+            return []
+
+        raw_list = resp.json()
+        if not isinstance(raw_list, list):
+            return []
+
+        instances = []
+        for item in raw_list:
+            name = item.get("name") or item.get("instanceName") or ""
+            if not name:
+                continue
+
+            status = item.get("connectionStatus", "close")
+            owner_jid = item.get("ownerJid") or ""
+            phone = owner_jid.replace("@s.whatsapp.net", "").replace("@c.us", "")
+            profile_name = item.get("profileName") or name
+
+            instances.append({
+                "id": item.get("id", ""),
+                "name": name,
+                "status": status,
+                "phone": phone,
+                "phone_formatted": format_phone_display(phone) if phone else "Sem número",
+                "profile_name": profile_name,
+                "profile_pic": item.get("profilePicUrl") or "",
+                "is_active": name == active_inst,
+            })
+
+        return instances
+
+    except Exception as e:
+        logger.error("Erro ao listar instâncias do WhatsApp: %s", e)
+        return []
 
 
 def clean_phone_number(phone: str) -> str:
@@ -52,8 +138,7 @@ def format_phone_display(phone: str) -> str:
 
 def _get_image_payload(image_source: str) -> Tuple[Optional[str], str]:
     """
-    Tenta retornar a imagem em Base64 puro para evitar problemas de rede
-    (ex: Evolution API não conseguir baixar imagens do localhost do usuário).
+    Tenta retornar a imagem em Base64 puro para evitar problemas de rede.
     """
     if not image_source:
         return None, "image/jpeg"
@@ -71,7 +156,6 @@ def _get_image_payload(image_source: str) -> Tuple[Optional[str], str]:
             pass
 
     # 2. Se é arquivo local (uploads do painel)
-    import os, base64
     if "/static/uploads/" in image_source:
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         filename = image_source.split("/static/uploads/")[-1]
@@ -99,17 +183,18 @@ def send_whatsapp_message_sync(
     phone: str,
     text: str,
     image_url: str = None,
+    instance: str = None,
 ) -> Tuple[bool, str]:
     """
-    Envia mensagem síncrona via Evolution API.
+    Envia mensagem síncrona via Evolution API usando a instância especificada ou ativa.
     Retorna: (sucesso: bool, mensagem_erro: str)
     """
     api_url = os.getenv("WHATSAPP_API_URL", WHATSAPP_API_URL).rstrip("/")
-    instance = os.getenv("WHATSAPP_INSTANCE", WHATSAPP_INSTANCE)
+    target_instance = instance.strip() if instance else get_active_instance()
     api_key = os.getenv("WHATSAPP_API_KEY", WHATSAPP_API_KEY)
 
-    if not api_url or not instance:
-        err = "Credenciais do WhatsApp não configuradas (.env)."
+    if not api_url or not target_instance:
+        err = "Credenciais ou instância do WhatsApp não configuradas."
         logger.warning(err)
         return False, err
 
@@ -117,13 +202,14 @@ def send_whatsapp_message_sync(
     headers = {
         "Content-Type": "application/json",
         "apikey": api_key,
+        "User-Agent": "Mozilla/5.0",
     }
 
     try:
         media_data, mimetype = _get_image_payload(image_url) if image_url else (None, "image/jpeg")
 
         if media_data:
-            endpoint = f"{api_url}/message/sendMedia/{instance}"
+            endpoint = f"{api_url}/message/sendMedia/{target_instance}"
             payload = {
                 "number": dest_number,
                 "mediatype": "image",
@@ -137,7 +223,7 @@ def send_whatsapp_message_sync(
                 }
             }
         else:
-            endpoint = f"{api_url}/message/sendText/{instance}"
+            endpoint = f"{api_url}/message/sendText/{target_instance}"
             payload = {
                 "number": dest_number,
                 "text": text,
@@ -151,7 +237,7 @@ def send_whatsapp_message_sync(
         resp = requests.post(endpoint, json=payload, headers=headers, timeout=35)
 
         if resp.status_code in (200, 201):
-            logger.info("✅ Mensagem enviada com sucesso para %s!", dest_number)
+            logger.info("✅ Mensagem enviada com sucesso para %s via [%s]!", dest_number, target_instance)
             return True, "OK"
 
         error_detail = f"Evolution API HTTP {resp.status_code}: {resp.text}"
@@ -160,7 +246,7 @@ def send_whatsapp_message_sync(
         # Fallback: Se tentou com imagem e falhou, tenta enviar texto puro imediatamente
         if media_data:
             logger.info("🔄 Tentando fallback para envio de texto simples...")
-            fb_endpoint = f"{api_url}/message/sendText/{instance}"
+            fb_endpoint = f"{api_url}/message/sendText/{target_instance}"
             fb_payload = {
                 "number": dest_number,
                 "text": text,
@@ -183,37 +269,70 @@ def send_whatsapp_message_sync(
         return False, err_msg
 
 
+def check_whatsapp_connection_sync(instance: str = None) -> Tuple[bool, str]:
+    """
+    Verifica se a instância do WhatsApp está conectada e retorna diagnóstico detalhado.
+    Retorna: (is_connected: bool, status_message: str)
+    """
+    api_url = os.getenv("WHATSAPP_API_URL", WHATSAPP_API_URL).rstrip("/")
+    target_instance = instance.strip() if instance else get_active_instance()
+    api_key = os.getenv("WHATSAPP_API_KEY", WHATSAPP_API_KEY)
+
+    if not api_url or not target_instance:
+        return False, "Credenciais do WhatsApp não configuradas no .env"
+
+    try:
+        resp = requests.get(
+            f"{api_url}/instance/connectionState/{target_instance}",
+            headers={"apikey": api_key, "User-Agent": "Mozilla/5.0"},
+            timeout=10,
+        )
+
+        if resp.status_code == 200:
+            data = resp.json()
+            state = data.get("instance", {}).get("state", "").lower()
+            if state == "open":
+                return True, f"WhatsApp Conectado ({target_instance})"
+            elif state == "connecting":
+                return False, f"Instância '{target_instance}' Conectando... Aguarde alguns instantes."
+            elif state == "close":
+                return False, f"Instância '{target_instance}' Desconectada. Escaneie o QR Code na Evolution API."
+            return False, f"Instância '{target_instance}' em estado '{state}'."
+
+        if resp.status_code == 503:
+            return False, "Servidor Evolution API no Render está offline ou hibernando (HTTP 503 / hibernate-wake-error). Reinicie o serviço no Dashboard do Render."
+
+        if resp.status_code == 401 or resp.status_code == 403:
+            return False, "Chave de API (WHATSAPP_API_KEY) inválida ou não autorizada."
+
+        if resp.status_code == 404:
+            return False, f"Instância '{target_instance}' não encontrada na Evolution API."
+
+        return False, f"Evolution API retornou status HTTP {resp.status_code}"
+
+    except requests.exceptions.Timeout:
+        return False, "Tempo de resposta esgotado (Timeout). O servidor da Evolution API no Render pode estar reiniciando ou sobrecarregado."
+    except requests.exceptions.ConnectionError:
+        return False, "Falha de conexão com a Evolution API. Verifique a URL no .env."
+    except Exception as e:
+        logger.warning("Falha ao verificar conexão WhatsApp: %s", e)
+        return False, f"Erro de conexão: {str(e)}"
+
+
 async def send_whatsapp_message(
     phone: str,
     text: str,
     image_url: str = None,
+    instance: str = None,
 ) -> bool:
     """Wrapper assíncrono para compatibilidade com o motor de funil."""
     import asyncio
-    success, _ = await asyncio.to_thread(send_whatsapp_message_sync, phone, text, image_url)
+    success, _ = await asyncio.to_thread(send_whatsapp_message_sync, phone, text, image_url, instance)
     return success
 
 
-async def check_whatsapp_connection() -> bool:
-    """Verifica se a instância do WhatsApp está conectada."""
-    api_url = os.getenv("WHATSAPP_API_URL", WHATSAPP_API_URL).rstrip("/")
-    instance = os.getenv("WHATSAPP_INSTANCE", WHATSAPP_INSTANCE)
-    api_key = os.getenv("WHATSAPP_API_KEY", WHATSAPP_API_KEY)
-
-    if not api_url or not instance:
-        return False
-
-    try:
-        resp = requests.get(
-            f"{api_url}/instance/connectionState/{instance}",
-            headers={"apikey": api_key},
-            timeout=10,
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            state = data.get("instance", {}).get("state", "")
-            return state.lower() == "open"
-    except Exception as e:
-        logger.warning("Falha ao verificar conexão WhatsApp: %s", e)
-
-    return False
+async def check_whatsapp_connection(instance: str = None) -> bool:
+    """Wrapper assíncrono para compatibilidade."""
+    import asyncio
+    connected, _ = await asyncio.to_thread(check_whatsapp_connection_sync, instance)
+    return connected

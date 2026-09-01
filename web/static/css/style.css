@@ -471,6 +471,55 @@ body {
     color: #000;
 }
 
+.btn-tag-highlight {
+    background: rgba(34, 197, 94, 0.18);
+    color: var(--success);
+    border-color: rgba(34, 197, 94, 0.4);
+}
+.btn-tag-highlight:hover {
+    background: var(--success);
+    color: #000;
+}
+
+.humanizer-options-box {
+    background: rgba(229, 184, 90, 0.04);
+    border: 1px solid rgba(229, 184, 90, 0.2);
+    border-radius: var(--radius-sm);
+    padding: 0.85rem;
+}
+
+.btn-sim-dice {
+    margin-left: auto;
+    font-size: 0.72rem;
+    padding: 0.25rem 0.6rem;
+    white-space: nowrap;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #000;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(229, 184, 90, 0.3);
+    transition: var(--transition);
+}
+.btn-sim-dice:hover {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+}
+
+.pl-6 {
+    padding-left: 1.6rem;
+}
+
+.bubble-highlight {
+    animation: flashBubble 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes flashBubble {
+    0% { background: #0e8068; transform: scale(0.98); }
+    50% { background: #128c7e; transform: scale(1.01); }
+    100% { background: #005c4b; transform: scale(1); }
+}
+
 .help-text {
     font-size: 0.75rem;
     color: var(--text-muted);

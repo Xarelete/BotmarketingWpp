@@ -144,19 +144,36 @@ function showApp() {
     checkWhatsAppStatus();
 }
 
+let wppStatusInterval = null;
+
 async function checkWhatsAppStatus() {
     try {
         const data = await api('/api/whatsapp/status');
         const dot = document.getElementById('wpp-status-dot');
         const label = document.getElementById('wpp-status-label');
+        const pill = document.getElementById('wpp-connection-pill');
         if (data.connected) {
             if (dot) dot.style.background = 'var(--success)';
             if (label) label.textContent = 'WhatsApp Conectado';
+            if (pill) {
+                pill.style.borderColor = 'rgba(34, 197, 94, 0.4)';
+                pill.title = data.message || 'Instância ativa e conectada';
+            }
         } else {
             if (dot) dot.style.background = 'var(--danger)';
-            if (label) label.textContent = 'WhatsApp Desconectado';
+            if (label) {
+                label.textContent = data.message && data.message.includes('Render') ? 'Render Offline (503)' : 'WhatsApp Desconectado';
+            }
+            if (pill) {
+                pill.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                pill.title = data.message || 'Instância desconectada ou serviço offline';
+            }
         }
     } catch { }
+
+    if (!wppStatusInterval) {
+        wppStatusInterval = setInterval(checkWhatsAppStatus, 10000);
+    }
 }
 
 async function handleLogin(e) {
@@ -288,10 +305,83 @@ async function loadDashboard() {
 // DISPARO RÁPIDO & SIMULADOR WHATSAPP
 // ═══════════════════════════════════════════
 
+let availableInstances = [];
+
 async function loadBroadcastPage() {
+    const textarea = document.getElementById('bc-message-text');
+    if (textarea && !textarea.value.trim()) {
+        textarea.value = `Olá {primeiro_nome}, tudo bem?\n\nPassando aqui para te mostrar uma oportunidade exclusiva de imóvel que acabou de entrar no nosso portfólio!\n\nGostaria de receber as fotos e condições? Me avisa aqui!`;
+    }
     updateWhatsappPreview();
+    await loadWhatsAppInstances();
     await fetchAllLeadsForBroadcast();
     checkActiveBroadcast();
+}
+
+async function loadWhatsAppInstances() {
+    const select = document.getElementById('bc-instance-select');
+    const badge = document.getElementById('instance-badge-status');
+    if (!select) return;
+
+    try {
+        const data = await api('/api/whatsapp/instances');
+        availableInstances = data.instances || [];
+        const active = data.active_instance || '';
+
+        if (availableInstances.length === 0) {
+            select.innerHTML = `<option value="${active}">${active} (Padrão)</option>`;
+            return;
+        }
+
+        select.innerHTML = availableInstances.map(inst => {
+            const isSelected = inst.name === active || inst.is_active;
+            const statusEmoji = inst.status === 'open' ? '🟢 Conectado' : (inst.status === 'connecting' ? '🟡 Conectando' : '🔴 Desconectado');
+            const phoneInfo = inst.phone_formatted && inst.phone_formatted !== 'Sem número' ? ` [${inst.phone_formatted}]` : '';
+            const profile = inst.profile_name && inst.profile_name !== inst.name ? ` - ${inst.profile_name}` : '';
+            return `<option value="${inst.name}" ${isSelected ? 'selected' : ''}>${inst.name}${phoneInfo}${profile} (${statusEmoji})</option>`;
+        }).join('');
+
+        updateInstanceBadgeStatus(active);
+    } catch (err) {
+        console.error('Erro ao carregar instâncias:', err);
+    }
+}
+
+function updateInstanceBadgeStatus(instanceName) {
+    const badge = document.getElementById('instance-badge-status');
+    if (!badge) return;
+    const inst = availableInstances.find(i => i.name === instanceName);
+    if (!inst) {
+        badge.className = 'badge badge-active';
+        badge.textContent = 'Ativo';
+        return;
+    }
+
+    if (inst.status === 'open') {
+        badge.className = 'badge badge-active';
+        badge.textContent = '🟢 Online';
+    } else if (inst.status === 'connecting') {
+        badge.className = 'badge badge-paused';
+        badge.textContent = '🟡 Conectando';
+    } else {
+        badge.className = 'badge badge-inactive';
+        badge.textContent = '🔴 Desconectado';
+    }
+}
+
+async function handleInstanceChange(instanceName) {
+    if (!instanceName) return;
+    updateInstanceBadgeStatus(instanceName);
+    try {
+        const res = await api('/api/whatsapp/select-instance', {
+            method: 'POST',
+            body: { instance: instanceName }
+        });
+        toast(`Número remetente alterado para: ${instanceName}`, 'success');
+        checkWhatsAppStatus();
+    } catch (err) {
+        toast('Erro ao alterar instância: ' + err.message, 'error');
+    }
 }
 
 async function fetchAllLeadsForBroadcast() {
@@ -409,6 +499,14 @@ function updateBroadcastSelectedCount() {
     if (el) el.textContent = selectedLeadIds.size;
 }
 
+function loadDefaultTemplate() {
+    const textarea = document.getElementById('bc-message-text');
+    if (!textarea) return;
+    textarea.value = `Olá {primeiro_nome}, tudo bem?\n\nPassando aqui para te mostrar uma oportunidade exclusiva de imóvel que acabou de entrar no nosso portfólio!\n\nGostaria de receber as fotos e condições? Me avisa aqui!`;
+    updateWhatsappPreview();
+    toast('Modelo humanizado pronto carregado!', 'success');
+}
+
 function insertTag(tag) {
     const textarea = document.getElementById('bc-message-text');
     if (!textarea) return;
@@ -421,18 +519,27 @@ function insertTag(tag) {
     updateWhatsappPreview();
 }
 
-function updateWhatsappPreview() {
+function updateWhatsappPreview(customPreview = null) {
     const rawText = document.getElementById('bc-message-text')?.value || '';
     const imageUrl = currentUploadedImageUrl || document.getElementById('bc-image-url')?.value || '';
 
-    let previewText = rawText
-        .replace(/\{primeiro_nome\}/gi, 'João')
-        .replace(/\{nome\}/gi, 'João Silva')
-        .replace(/\{telefone\}/gi, '+55 (12) 99181-0835')
-        .replace(/\{([^{}]+)\}/g, (match, choices) => choices.split('|')[0]);
+    let previewText = customPreview;
 
-    if (!previewText.trim()) {
-        previewText = 'Olá João, tudo bem?\n\nPassando para te mostrar uma oportunidade exclusiva de imóvel!';
+    if (!previewText) {
+        // Se o lead não tem nome, faz saudação fluida sem "João" e sem "amigo(a)"
+        previewText = rawText
+            .replace(/\{primeiro_nome\}/gi, '')
+            .replace(/\{nome\}/gi, '')
+            .replace(/\{telefone\}/gi, '+55 (12) 98826-5141')
+            .replace(/\{([^{}]+)\}/g, (match, choices) => choices.split('|')[0]);
+
+        // Ajusta espaços e pontuação residual
+        previewText = previewText.replace(/(olá|oi|bom dia|boa tarde)\s*,?\s*tudo bem\??/gi, 'Olá, tudo bem?');
+        previewText = previewText.replace(/\s+([,!?.])/g, '$1');
+
+        if (!previewText.trim()) {
+            previewText = 'Olá, tudo bem?\n\nPassando aqui para te mostrar uma oportunidade exclusiva de imóvel que acabou de entrar no nosso portfólio!\n\nGostaria de receber as fotos e condições? Me avisa aqui!';
+        }
     }
 
     const previewContainer = document.getElementById('preview-message-text');
@@ -451,6 +558,43 @@ function updateWhatsappPreview() {
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const timeEl = document.getElementById('preview-time');
     if (timeEl) timeEl.textContent = timeStr;
+}
+
+async function generateRandomPreview() {
+    const text = document.getElementById('bc-message-text')?.value.trim();
+    if (!text) {
+        toast('Digite uma mensagem primeiro.', 'info');
+        return;
+    }
+
+    const varySynonyms = document.getElementById('bc-vary-synonyms')?.checked ?? true;
+    const varyText = document.getElementById('bc-vary-text')?.checked ?? true;
+
+    try {
+        const resp = await api('/api/broadcast/preview', {
+            method: 'POST',
+            body: {
+                message_template: text,
+                vary_synonyms: varySynonyms,
+                vary_text: varyText,
+            }
+        });
+
+        if (resp.preview) {
+            updateWhatsappPreview(resp.preview);
+            
+            // Efeito visual de atualização na bolha
+            const bubble = document.getElementById('whatsapp-bubble');
+            if (bubble) {
+                bubble.classList.remove('bubble-highlight');
+                void bubble.offsetWidth; // trigger reflow
+                bubble.classList.add('bubble-highlight');
+            }
+            toast('Nova variação gerada para simulação!', 'info');
+        }
+    } catch (err) {
+        toast('Erro ao gerar prévia: ' + err.message, 'error');
+    }
 }
 
 async function handleImageSelected(e) {
@@ -511,6 +655,7 @@ async function confirmAndStartBroadcast() {
     const minDelay = parseInt(document.getElementById('bc-min-delay')?.value || 15);
     const maxDelay = parseInt(document.getElementById('bc-max-delay')?.value || 40);
     const varyText = document.getElementById('bc-vary-text')?.checked ?? true;
+    const varySynonyms = document.getElementById('bc-vary-synonyms')?.checked ?? true;
     const imageUrl = currentUploadedImageUrl || document.getElementById('bc-image-url')?.value.trim() || null;
 
     if (!confirm(`🚀 Iniciar disparo em massa para ${selectedLeadIds.size} leads selecionados com intervalos entre ${minDelay}s e ${maxDelay}s?`)) {
@@ -518,6 +663,7 @@ async function confirmAndStartBroadcast() {
     }
 
     try {
+        const selectedInstance = document.getElementById('bc-instance-select')?.value || null;
         const resp = await api('/api/broadcast/start', {
             method: 'POST',
             body: {
@@ -527,6 +673,8 @@ async function confirmAndStartBroadcast() {
                 min_delay: minDelay,
                 max_delay: maxDelay,
                 vary_text: varyText,
+                vary_synonyms: varySynonyms,
+                instance: selectedInstance,
             }
         });
 
