@@ -216,17 +216,17 @@ async function loadAvailableInstances() {
             const online = inst.status === 'open' || inst.status === 'connected';
             const dotClass = online ? 'instance-dot online' : 'instance-dot offline';
             const statusLabel = online ? 'Online' : 'Offline';
-            const name = inst.display_name || inst.name;
+            const name = inst.display_name || inst.profile_name || inst.name;
             const phone = inst.phone_formatted ? `<div class="instance-phone">${inst.phone_formatted}</div>` : '';
             const profile = inst.profile_name && inst.profile_name !== name ? `<div class="instance-profile">${inst.profile_name}</div>` : '';
-            const noAccess = inst.has_access ? '' : '<span class="instance-noaccess">sem acesso</span>';
             const offlineNote = !online ? '<span class="instance-offline-note">offline — login ainda possível</span>' : '';
-            const clickable = inst.has_access ? `onclick="promptInstancePassword('${inst.name.replace(/'/g, "\\'")}', '${name.replace(/'/g, "\\'")}')"` : '';
+            const escapedName = (inst.name || '').replace(/'/g, "\\'");
+            const escapedDisplayName = (name || '').replace(/'/g, "\\'");
             return `
-                <div class="instance-card ${inst.has_access ? '' : 'no-access'}" ${clickable}>
+                <div class="instance-card" onclick="promptInstancePassword('${escapedName}', '${escapedDisplayName}')">
                     <span class="${dotClass}" title="${statusLabel}"></span>
                     <div class="instance-info">
-                        <div class="instance-name">${name} ${noAccess}</div>
+                        <div class="instance-name">${name}</div>
                         ${phone}
                         ${profile}
                         ${offlineNote}
@@ -240,18 +240,20 @@ async function loadAvailableInstances() {
 }
 
 function promptInstancePassword(instanceName, displayName) {
-    openModal(`Acessar número: ${displayName}`, `
+    openModal(`📱 Acessar: ${displayName}`, `
         <div class="form-group">
-            <label>Senha do número</label>
-            <input type="password" id="instance-password-input" placeholder="Senha deste número" autocomplete="current-password">
+            <label style="display:block;margin-bottom:0.4rem;font-weight:600">Senha deste número</label>
+            <input type="password" id="instance-password-input" value="admin" placeholder="Digite a senha (padrão: admin)" autocomplete="current-password" style="width:100%;padding:0.75rem 1rem">
+            <small style="color:var(--text-muted);font-size:0.75rem;margin-top:0.35rem;display:block">Senha inicial padrão: <code style="color:var(--accent)">admin</code></small>
         </div>
-        <div id="instance-login-error" class="login-error"></div>
-        <button type="button" class="btn btn-primary btn-full mt-2" onclick="submitInstanceLogin('${instanceName.replace(/'/g, "\\'")}')">Entrar</button>
+        <div id="instance-login-error" style="color:var(--danger);font-size:0.82rem;margin-top:0.35rem;min-height:1.2rem"></div>
+        <button type="button" class="btn btn-primary btn-full mt-2" onclick="submitInstanceLogin('${instanceName.replace(/'/g, "\\'")}')">Entrar no Painel</button>
     `);
     setTimeout(() => {
         const input = document.getElementById('instance-password-input');
         if (input) {
             input.focus();
+            input.select();
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') submitInstanceLogin(instanceName);
             });

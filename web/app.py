@@ -614,34 +614,50 @@ def create_app() -> Flask:
     @app.route("/api/instances/available")
     def api_instances_available():
         """Lista os números conectados (Evolution) mesclados com o acesso
-        configurado. Não exige login — alimenta a tela de seleção de número."""
+        configurado. Garante que qualquer número detectado na Evolution tenha
+        registro de acesso (com senha padrão 'admin' caso novo)."""
         from platforms.whatsapp_client import list_whatsapp_instances
-        from core.instance_access import list_instance_access
+        from core.instance_access import list_instance_access, ensure_instance_access
         try:
             evo = list_whatsapp_instances()
-        except Exception:
+        except Exception as e:
+            logger.error("Erro ao listar instâncias do WhatsApp: %s", e)
             evo = []
+
+        # Garante que toda instância da Evolution tenha acesso configurado no banco
+        for inst in evo:
+            name = inst.get("name")
+            if name:
+                try:
+                    ensure_instance_access(name, inst.get("profile_name") or inst.get("name"))
+                except Exception as ex:
+                    logger.debug("Não foi possível garantir access para %s: %s", name, ex)
+
         access = {a["instance_name"]: a for a in list_instance_access()}
         merged = []
         for inst in evo:
             acc = access.get(inst["name"], {})
+            display_name = acc.get("display_name") or inst.get("profile_name") or inst["name"]
             merged.append({
                 "name": inst["name"],
                 "status": inst.get("status"),
                 "phone_formatted": inst.get("phone_formatted"),
                 "profile_name": inst.get("profile_name"),
                 "profile_pic": inst.get("profile_pic"),
-                "display_name": acc.get("display_name") or inst.get("profile_name") or inst["name"],
-                "has_access": bool(acc),
+                "display_name": display_name,
+                "has_access": True,
             })
         # Inclui números com acesso mas que não voltaram da Evolution (offline)
         evo_names = {i["name"] for i in evo}
         for name, acc in access.items():
             if name not in evo_names:
                 merged.append({
-                    "name": name, "status": "close",
-                    "phone_formatted": "", "profile_name": acc.get("display_name"),
-                    "profile_pic": "", "display_name": acc.get("display_name") or name,
+                    "name": name,
+                    "status": "close",
+                    "phone_formatted": "",
+                    "profile_name": acc.get("display_name"),
+                    "profile_pic": "",
+                    "display_name": acc.get("display_name") or name,
                     "has_access": True,
                 })
         return jsonify({"instances": merged})
