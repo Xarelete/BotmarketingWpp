@@ -1,13 +1,21 @@
 /* =============================================================================
    BotRemarketingIMOB — SPA App & Simulador WhatsApp (Vanilla JS)
+   Version: 5.0.0 — Modern Slate UI & Multi-Target Broadcast
    ============================================================================= */
 
 // Estado global da aplicação
 let allLeadsCache = [];
 let selectedLeadIds = new Set();
+let selectedGroupJids = new Set();
+let broadcastTargetType = 'leads'; // 'leads' | 'pools' | 'groups' | 'segments'
 let broadcastPollingInterval = null;
 let currentUploadedImageUrl = null;
 let poolsCache = [];
+let groupsCache = [];
+let segmentsCache = [];
+let availableInstances = [];
+let wppStatusInterval = null;
+let currentSegmentName = '';
 
 // ═══════════════════════════════════════════
 // FORMATAÇÃO E MÁSCARA DE TELEFONE
@@ -29,6 +37,7 @@ function formatPhoneDisplay(raw) {
 }
 
 function applyPhoneMask(input) {
+    if (!input) return;
     input.addEventListener('input', (e) => {
         let val = e.target.value.replace(/\D/g, '');
         if (val.length > 13) val = val.substring(0, 13);
@@ -92,9 +101,9 @@ async function api(url, options = {}) {
         if (!contentType.includes('application/json')) {
             if (!resp.ok) {
                 if (resp.status === 404) {
-                    throw new Error('Servidor precisa ser reiniciado para carregar as novas rotas. Reinicie o python main.py no terminal.');
+                    throw new Error('Recurso não encontrado no servidor.');
                 }
-                throw new Error(`Servidor retornou erro HTTP ${resp.status}. O serviço pode estar reiniciando.`);
+                throw new Error(`Servidor retornou erro HTTP ${resp.status}.`);
             }
             return { ok: true };
         }
@@ -128,7 +137,7 @@ function toast(message, type = 'info') {
     setTimeout(() => {
         t.classList.add('fade-out');
         setTimeout(() => t.remove(), 350);
-    }, 3500);
+    }, 3800);
 }
 
 function openModal(title, bodyHTML) {
@@ -142,7 +151,7 @@ function closeModal() {
 }
 
 // ═══════════════════════════════════════════
-// AUTH
+// AUTH & SESSÃO
 // ═══════════════════════════════════════════
 
 async function checkAuth() {
@@ -152,7 +161,6 @@ async function checkAuth() {
             setActiveInstanceBadge(data.instance);
             showApp();
         } else if (data.authenticated) {
-            // Admin logado globalmente, sem número selecionado (fallback)
             setActiveInstanceBadge('');
             showApp();
         } else {
@@ -166,7 +174,6 @@ function setActiveInstanceBadge(instanceName) {
     if (badge) {
         badge.textContent = instanceName ? `📱 ${instanceName}` : '👤 Admin';
     }
-    // Sync topbar
     syncTopbarInstance(instanceName);
 }
 
@@ -193,10 +200,6 @@ function showApp() {
     checkActiveBroadcast();
     checkWhatsAppStatus();
 }
-
-// ═══════════════════════════════════════════
-// SELEÇÃO / LOGIN POR NÚMERO (INSTÂNCIA)
-// ═══════════════════════════════════════════
 
 async function loadAvailableInstances() {
     const list = document.getElementById('instance-list');
@@ -240,11 +243,11 @@ async function loadAvailableInstances() {
 }
 
 function promptInstancePassword(instanceName, displayName) {
-    openModal(`📱 Acessar: ${displayName}`, `
+    openModal(`📱 Acessar Número: ${displayName}`, `
         <div class="form-group">
-            <label style="display:block;margin-bottom:0.4rem;font-weight:600">Senha deste número</label>
+            <label style="display:block;margin-bottom:0.4rem;font-weight:600">Senha de Acesso</label>
             <input type="password" id="instance-password-input" value="admin" placeholder="Digite a senha (padrão: admin)" autocomplete="current-password" style="width:100%;padding:0.75rem 1rem">
-            <small style="color:var(--text-muted);font-size:0.75rem;margin-top:0.35rem;display:block">Senha inicial padrão: <code style="color:var(--accent)">admin</code></small>
+            <small style="color:var(--text-muted);font-size:0.75rem;margin-top:0.35rem;display:block">Senha inicial padrão: <code style="color:var(--emerald)">admin</code></small>
         </div>
         <div id="instance-login-error" style="color:var(--danger);font-size:0.82rem;margin-top:0.35rem;min-height:1.2rem"></div>
         <button type="button" class="btn btn-primary btn-full mt-2" onclick="submitInstanceLogin('${instanceName.replace(/'/g, "\\'")}')">Entrar no Painel</button>
@@ -288,32 +291,22 @@ function switchInstance() {
     showInstanceSelection();
 }
 
-let wppStatusInterval = null;
-
 async function checkWhatsAppStatus() {
     try {
         const data = await api('/api/whatsapp/status');
         const dot = document.getElementById('wpp-status-dot');
         const label = document.getElementById('wpp-status-label');
         const pill = document.getElementById('wpp-connection-pill');
-        const wppLabel = data.message && data.message.includes('Render') ? 'Render Offline (503)' : (data.connected ? 'WhatsApp Conectado' : 'WhatsApp Desconectado');
-        if (data.connected) {
-            if (dot) dot.style.background = 'var(--success)';
-            if (label) label.textContent = 'WhatsApp Conectado';
-            if (pill) {
-                pill.style.borderColor = 'rgba(34, 197, 94, 0.4)';
-                pill.title = data.message || 'Instância ativa e conectada';
-            }
-        } else {
-            if (dot) dot.style.background = 'var(--danger)';
-            if (label) label.textContent = wppLabel;
-            if (pill) {
-                pill.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-                pill.title = data.message || 'Instância desconectada ou serviço offline';
-            }
+        const isConn = !!data.connected;
+        const wppLabel = isConn ? 'WhatsApp Conectado' : 'WhatsApp Desconectado';
+
+        if (dot) dot.style.background = isConn ? 'var(--emerald)' : 'var(--danger)';
+        if (label) label.textContent = wppLabel;
+        if (pill) {
+            pill.style.borderColor = isConn ? 'rgba(16, 185, 129, 0.4)' : 'rgba(244, 63, 94, 0.4)';
+            pill.title = data.message || (isConn ? 'Instância conectada' : 'Instância desconectada');
         }
-        // Sync topbar
-        syncTopbarWpp(data.connected, data.connected ? 'Conectado' : 'Desconectado');
+        syncTopbarWpp(isConn, isConn ? 'Conectado' : 'Desconectado');
     } catch { }
 
     if (!wppStatusInterval) {
@@ -341,7 +334,7 @@ async function handleLogout() {
 }
 
 // ═══════════════════════════════════════════
-// SIDEBAR TOGGLE & PERSISTENCE
+// SIDEBAR & BREADCRUMB
 // ═══════════════════════════════════════════
 
 const SIDEBAR_KEY = 'imob_sidebar_collapsed';
@@ -352,8 +345,7 @@ function isMobile() {
 
 function initSidebar() {
     const app = document.getElementById('app');
-    if (!app) return;
-    if (isMobile()) return; // mobile: always starts closed
+    if (!app || isMobile()) return;
     const saved = localStorage.getItem(SIDEBAR_KEY);
     if (saved === 'true') {
         app.classList.add('sidebar-collapsed');
@@ -364,10 +356,8 @@ function toggleSidebar() {
     const app = document.getElementById('app');
     if (!app) return;
     if (isMobile()) {
-        // Mobile: toggle overlay mode
         app.classList.toggle('sidebar-mobile-open');
     } else {
-        // Desktop: toggle collapsed
         const isCollapsed = app.classList.toggle('sidebar-collapsed');
         localStorage.setItem(SIDEBAR_KEY, isCollapsed ? 'true' : 'false');
     }
@@ -378,7 +368,6 @@ function closeSidebarMobile() {
     if (app) app.classList.remove('sidebar-mobile-open');
 }
 
-// Close mobile sidebar on resize to desktop
 window.addEventListener('resize', () => {
     if (!isMobile()) {
         const app = document.getElementById('app');
@@ -386,16 +375,12 @@ window.addEventListener('resize', () => {
     }
 });
 
-// ═══════════════════════════════════════════
-// BREADCRUMB
-// ═══════════════════════════════════════════
-
 const PAGE_LABELS = {
     dashboard: 'Dashboard',
     broadcast: 'Disparo Rápido',
-    leads: 'Leads',
     pools: 'Bolsões',
-    groups: 'Grupos WA',
+    leads: 'Leads',
+    groups: 'Grupos WA & Canais',
     segments: 'Segmentos',
     campaigns: 'Campanhas',
     messages: 'Editor D1–D30',
@@ -409,10 +394,6 @@ function updateBreadcrumb(page) {
     if (el) el.textContent = PAGE_LABELS[page] || page;
 }
 
-// ═══════════════════════════════════════════
-// TOPBAR SYNC (instance + wpp status)
-// ═══════════════════════════════════════════
-
 function syncTopbarInstance(name) {
     const el = document.getElementById('topbar-instance-badge');
     if (!el) return;
@@ -423,51 +404,52 @@ function syncTopbarWpp(connected, label) {
     const dot = document.getElementById('topbar-wpp-dot');
     const lbl = document.getElementById('topbar-wpp-label');
     if (dot) {
-        dot.style.background = connected ? 'var(--success)' : 'var(--danger)';
-        if (connected) {
-            dot.classList.add('connected');
-        } else {
-            dot.classList.remove('connected');
-        }
+        dot.style.background = connected ? 'var(--emerald)' : 'var(--danger)';
+        if (connected) dot.classList.add('connected');
+        else dot.classList.remove('connected');
     }
     if (lbl) lbl.textContent = label || (connected ? 'Conectado' : 'Desconectado');
 }
 
 // ═══════════════════════════════════════════
-// NAVIGATION
+// NAVEGAÇÃO SPA
 // ═══════════════════════════════════════════
 
 document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', (e) => {
         e.preventDefault();
         const page = item.dataset.page;
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        item.classList.add('active');
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.getElementById(`page-${page}`).classList.add('active');
-
-        // Update breadcrumb
-        updateBreadcrumb(page);
-
-        // Close mobile sidebar on nav
-        if (isMobile()) closeSidebarMobile();
-
-        const loaders = {
-            dashboard: loadDashboard,
-            broadcast: loadBroadcastPage,
-            leads: loadLeads,
-            campaigns: loadCampaigns,
-            messages: loadMessagesPage,
-            control: loadControlPage,
-            log: loadDispatchLog,
-            pools: loadPools,
-            groups: loadGroups,
-            segments: loadSegments,
-            settings: loadInstanceSettings,
-        };
-        if (loaders[page]) loaders[page]();
+        navigateToPage(page);
     });
 });
+
+function navigateToPage(page) {
+    document.querySelectorAll('.nav-item').forEach(n => {
+        if (n.dataset.page === page) n.classList.add('active');
+        else n.classList.remove('active');
+    });
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const targetPage = document.getElementById(`page-${page}`);
+    if (targetPage) targetPage.classList.add('active');
+
+    updateBreadcrumb(page);
+    if (isMobile()) closeSidebarMobile();
+
+    const loaders = {
+        dashboard: loadDashboard,
+        broadcast: loadBroadcastPage,
+        pools: loadPools,
+        leads: loadLeads,
+        groups: loadGroups,
+        segments: loadSegments,
+        campaigns: loadCampaigns,
+        messages: loadMessagesPage,
+        control: loadControlPage,
+        log: loadDispatchLog,
+        settings: loadInstanceSettings,
+    };
+    if (loaders[page]) loaders[page]();
+}
 
 // ═══════════════════════════════════════════
 // DASHBOARD
@@ -512,16 +494,16 @@ async function loadDashboard() {
             </div>
         `;
 
-        // Animate stat counters
+        // Animação numérica
         document.querySelectorAll('.stat-value[data-target]').forEach(el => {
             const target = parseInt(el.dataset.target) || 0;
             if (target === 0) { el.textContent = '0'; return; }
-            const duration = 800;
+            const duration = 750;
             const start = performance.now();
             function step(now) {
                 const elapsed = now - start;
                 const progress = Math.min(elapsed / duration, 1);
-                const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+                const eased = 1 - Math.pow(1 - progress, 3);
                 el.textContent = Math.round(eased * target);
                 if (progress < 1) requestAnimationFrame(step);
             }
@@ -535,11 +517,11 @@ async function loadDashboard() {
             <div class="engine-status-indicator ${statusClass}">
                 <span class="dot"></span>${statusText}
             </div>
-            <div class="text-sm text-muted" style="margin-bottom:0.5rem">Data de operação: ${engine.current_date || 'Hoje'}</div>
+            <div class="text-sm text-secondary" style="margin-bottom:0.75rem">Data de operação: ${engine.current_date || 'Hoje'}</div>
             ${(engine.campaigns || []).map(c => `
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--border);font-size:0.85rem">
                     <span>📌 <strong>${c.name}</strong></span>
-                    <span>Hoje: <strong style="color:var(--accent)">${c.sent_today}</strong>/${c.target_today} | Total: ${c.total_sent}</span>
+                    <span>Hoje: <strong style="color:var(--emerald)">${c.sent_today}</strong>/${c.target_today} | Total: ${c.total_sent}</span>
                 </div>
             `).join('')}
         `;
@@ -568,8 +550,6 @@ async function loadDashboard() {
 // DISPARO RÁPIDO & SIMULADOR WHATSAPP
 // ═══════════════════════════════════════════
 
-let availableInstances = [];
-
 async function loadBroadcastPage() {
     const textarea = document.getElementById('bc-message-text');
     if (textarea && !textarea.value.trim()) {
@@ -578,12 +558,28 @@ async function loadBroadcastPage() {
     updateWhatsappPreview();
     await loadWhatsAppInstances();
     await fetchAllLeadsForBroadcast();
+    await loadBroadcastPoolsOptions();
+    await loadBroadcastGroupsList();
+    await loadBroadcastSegmentsOptions();
     checkActiveBroadcast();
+}
+
+function switchBroadcastTargetTab(type) {
+    broadcastTargetType = type;
+
+    // Atualiza botões
+    ['leads', 'pools', 'groups', 'segments'].forEach(t => {
+        const btn = document.getElementById(`tab-btn-${t}`);
+        const view = document.getElementById(`target-tab-${t}-view`);
+        if (btn) btn.classList.toggle('active', t === type);
+        if (view) view.classList.toggle('hidden', t !== type);
+    });
+
+    updateBroadcastSelectedCount();
 }
 
 async function loadWhatsAppInstances() {
     const select = document.getElementById('bc-instance-select');
-    const badge = document.getElementById('instance-badge-status');
     if (!select) return;
 
     try {
@@ -636,7 +632,7 @@ async function handleInstanceChange(instanceName) {
     if (!instanceName) return;
     updateInstanceBadgeStatus(instanceName);
     try {
-        const res = await api('/api/whatsapp/select-instance', {
+        await api('/api/whatsapp/select-instance', {
             method: 'POST',
             body: { instance: instanceName }
         });
@@ -692,7 +688,6 @@ function renderBroadcastLeadsTable() {
                     <th>Nome</th>
                     <th>Telefone</th>
                     <th>Tags</th>
-                    <th>Status</th>
                 </tr>
             </thead>
             <tbody>
@@ -704,11 +699,8 @@ function renderBroadcastLeadsTable() {
                                 <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleLeadSelection('${l.id}', this.checked)">
                             </td>
                             <td><strong>${l.name || 'Sem nome'}</strong></td>
-                            <td style="font-family:monospace;font-size:0.85rem;color:var(--accent)">${formatPhoneDisplay(l.phone)}</td>
+                            <td style="font-family:'JetBrains Mono',monospace;font-size:0.84rem;color:var(--emerald)">${formatPhoneDisplay(l.phone)}</td>
                             <td>${(l.tags || []).map(t => `<span class="tag">${t}</span>`).join(' ') || '—'}</td>
-                            <td>
-                                ${l.paused ? '<span class="badge badge-paused">pausado</span>' : '<span class="badge badge-active">ativo</span>'}
-                            </td>
                         </tr>
                     `;
                 }).join('')}
@@ -720,11 +712,8 @@ function renderBroadcastLeadsTable() {
 }
 
 function toggleLeadSelection(leadId, isSelected) {
-    if (isSelected) {
-        selectedLeadIds.add(leadId);
-    } else {
-        selectedLeadIds.delete(leadId);
-    }
+    if (isSelected) selectedLeadIds.add(leadId);
+    else selectedLeadIds.delete(leadId);
     updateBroadcastSelectedCount();
 }
 
@@ -740,11 +729,8 @@ function toggleSelectAllBroadcastLeads(checkbox) {
     });
 
     visibleLeads.forEach(l => {
-        if (checkbox.checked) {
-            selectedLeadIds.add(l.id);
-        } else {
-            selectedLeadIds.delete(l.id);
-        }
+        if (checkbox.checked) selectedLeadIds.add(l.id);
+        else selectedLeadIds.delete(l.id);
     });
 
     renderBroadcastLeadsTable();
@@ -752,22 +738,174 @@ function toggleSelectAllBroadcastLeads(checkbox) {
 
 function clearBroadcastSelection() {
     selectedLeadIds.clear();
+    selectedGroupJids.clear();
     const selectAllBox = document.getElementById('bc-select-all');
     if (selectAllBox) selectAllBox.checked = false;
     renderBroadcastLeadsTable();
+    renderBroadcastGroupsList();
+    updateBroadcastSelectedCount();
+}
+
+// ---------- BOLSÕES NO BROADCAST ----------
+async function loadBroadcastPoolsOptions() {
+    const sel = document.getElementById('bc-pool-select');
+    if (!sel) return;
+    try {
+        const data = await api('/api/pools');
+        poolsCache = data.pools || [];
+        if (poolsCache.length === 0) {
+            sel.innerHTML = '<option value="">Nenhum bolsão cadastrado</option>';
+            return;
+        }
+        sel.innerHTML = '<option value="">Selecione um Bolsão...</option>' +
+            poolsCache.map(p => `<option value="${p.id}">${p.name} (${p.stats?.total || 0} leads)</option>`).join('');
+    } catch (err) { console.error(err); }
+}
+
+function handleBroadcastPoolSelect(poolId) {
+    const box = document.getElementById('bc-pool-info-box');
+    if (!poolId) {
+        if (box) box.innerHTML = 'Selecione um bolsão acima para carregar automaticamente todos os contatos vinculados.';
+        updateBroadcastSelectedCount();
+        return;
+    }
+
+    const pool = poolsCache.find(p => String(p.id) === String(poolId));
+    if (!pool) return;
+
+    // Filtra leads que pertencem a este pool
+    const poolLeads = allLeadsCache.filter(l => String(l.pool_id) === String(poolId));
+    if (box) {
+        box.innerHTML = `
+            <div style="font-weight:600;color:var(--text-primary);margin-bottom:0.35rem">📦 Bolsão: ${pool.name}</div>
+            <div>Total de leads vinculados: <strong>${pool.stats?.total || poolLeads.length}</strong></div>
+            <div class="text-xs text-muted" style="margin-top:0.25rem">${pool.description || 'Sem descrição'}</div>
+        `;
+    }
+
+    updateBroadcastSelectedCount();
+}
+
+// ---------- GRUPOS NO BROADCAST ----------
+async function loadBroadcastGroupsList() {
+    const container = document.getElementById('bc-groups-list-container');
+    if (!container) return;
+    try {
+        const data = await api('/api/groups');
+        groupsCache = data.groups || [];
+        renderBroadcastGroupsList();
+    } catch (err) { console.error(err); }
+}
+
+function renderBroadcastGroupsList() {
+    const container = document.getElementById('bc-groups-list-container');
+    if (!container) return;
+
+    if (groupsCache.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text-muted)">Nenhum grupo sincronizado. Clique em "Sincronizar" acima.</div>';
+        return;
+    }
+
+    container.innerHTML = `
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:36px"></th>
+                    <th>Nome do Grupo</th>
+                    <th>Participantes</th>
+                    <th>Tipo</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${groupsCache.map(g => {
+                    const jid = g.id || g.jid;
+                    const isChecked = selectedGroupJids.has(jid);
+                    const name = g.name || g.subject || 'Grupo';
+                    const participants = g.participants != null ? g.participants : '—';
+                    const journalTag = g.is_journal ? '<span class="group-badge journal">📰 Jornal</span>' : '<span class="tag">Grupo</span>';
+                    return `
+                        <tr>
+                            <td>
+                                <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleGroupSelection('${jid}', this.checked)">
+                            </td>
+                            <td><strong>${name}</strong></td>
+                            <td>${participants}</td>
+                            <td>${journalTag}</td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function toggleGroupSelection(jid, isChecked) {
+    if (isChecked) selectedGroupJids.add(jid);
+    else selectedGroupJids.delete(jid);
+    updateBroadcastSelectedCount();
+}
+
+// ---------- SEGMENTOS NO BROADCAST ----------
+async function loadBroadcastSegmentsOptions() {
+    const sel = document.getElementById('bc-segment-select');
+    if (!sel) return;
+    try {
+        const data = await api('/api/segments');
+        segmentsCache = data.segments || [];
+        if (segmentsCache.length === 0) {
+            sel.innerHTML = '<option value="">Nenhum segmento cadastrado</option>';
+            return;
+        }
+        sel.innerHTML = '<option value="">Selecione um Segmento...</option>' +
+            segmentsCache.map(s => `<option value="${s.id}">${s.name} (${s.member_count || 0} membros)</option>`).join('');
+    } catch (err) { console.error(err); }
+}
+
+function handleBroadcastSegmentSelect(segmentId) {
+    const box = document.getElementById('bc-segment-info-box');
+    if (!segmentId) {
+        if (box) box.innerHTML = 'Selecione um segmento para disparar para todos os seus membros.';
+        updateBroadcastSelectedCount();
+        return;
+    }
+    const seg = segmentsCache.find(s => String(s.id) === String(segmentId));
+    if (!seg) return;
+    if (box) {
+        box.innerHTML = `
+            <div style="font-weight:600;color:var(--text-primary);margin-bottom:0.35rem">🎯 Segmento: ${seg.name}</div>
+            <div>Total de membros: <strong>${seg.member_count || 0}</strong></div>
+            <div class="text-xs text-muted" style="margin-top:0.25rem">${seg.description || 'Sem descrição'}</div>
+        `;
+    }
+    updateBroadcastSelectedCount();
 }
 
 function updateBroadcastSelectedCount() {
     const el = document.getElementById('bc-selected-count');
-    if (el) el.textContent = selectedLeadIds.size;
+    if (!el) return;
+
+    if (broadcastTargetType === 'leads') {
+        el.textContent = `${selectedLeadIds.size} leads`;
+    } else if (broadcastTargetType === 'pools') {
+        const poolId = document.getElementById('bc-pool-select')?.value;
+        const pool = poolsCache.find(p => String(p.id) === String(poolId));
+        el.textContent = pool ? `${pool.stats?.total || 0} leads no bolsão` : '0 selecionados';
+    } else if (broadcastTargetType === 'groups') {
+        el.textContent = `${selectedGroupJids.size} grupos`;
+    } else if (broadcastTargetType === 'segments') {
+        const segId = document.getElementById('bc-segment-select')?.value;
+        const seg = segmentsCache.find(s => String(s.id) === String(segId));
+        el.textContent = seg ? `${seg.member_count || 0} membros` : '0 selecionados';
+    }
 }
 
+// ---------- COMPOSER & PREVIEW ----------
 function loadDefaultTemplate() {
     const textarea = document.getElementById('bc-message-text');
     if (!textarea) return;
     textarea.value = `Olá {primeiro_nome}, tudo bem?\n\nPassando aqui para te mostrar uma oportunidade exclusiva de imóvel que acabou de entrar no nosso portfólio!\n\nGostaria de receber as fotos e condições? Me avisa aqui!`;
     updateWhatsappPreview();
-    toast('Modelo humanizado pronto carregado!', 'success');
+    toast('Modelo humanizado carregado!', 'success');
 }
 
 function insertTag(tag) {
@@ -789,19 +927,21 @@ function updateWhatsappPreview(customPreview = null) {
     let previewText = customPreview;
 
     if (!previewText) {
-        // Se o lead não tem nome, faz saudação fluida sem "João" e sem "amigo(a)"
         previewText = rawText
-            .replace(/\{primeiro_nome\}/gi, '')
-            .replace(/\{nome\}/gi, '')
+            .replace(/\{primeiro_nome\}/gi, 'Roberto')
+            .replace(/\{nome\}/gi, 'Roberto Carlos')
             .replace(/\{telefone\}/gi, '+55 (12) 98826-5141')
+            .replace(/\{empreendimento\}/gi, 'Residencial Grand Reserva')
+            .replace(/\{destaque\}/gi, 'Vista para o mar')
+            .replace(/\{preco\}/gi, 'R$ 890.000')
+            .replace(/\{link\}/gi, 'https://imob.com/imovel')
             .replace(/\{([^{}]+)\}/g, (match, choices) => choices.split('|')[0]);
 
-        // Ajusta espaços e pontuação residual
         previewText = previewText.replace(/(olá|oi|bom dia|boa tarde)\s*,?\s*tudo bem\??/gi, 'Olá, tudo bem?');
         previewText = previewText.replace(/\s+([,!?.])/g, '$1');
 
         if (!previewText.trim()) {
-            previewText = 'Olá, tudo bem?\n\nPassando aqui para te mostrar uma oportunidade exclusiva de imóvel que acabou de entrar no nosso portfólio!\n\nGostaria de receber as fotos e condições? Me avisa aqui!';
+            previewText = 'Olá! Temos uma novidade exclusiva para você. Gostaria de saber mais?';
         }
     }
 
@@ -820,7 +960,7 @@ function updateWhatsappPreview(customPreview = null) {
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const timeEl = document.getElementById('preview-time');
-    if (timeEl) timeEl.textContent = timeStr;
+    if (timeEl) timeEl.textContent = `${timeStr} ✓✓`;
 }
 
 async function generateRandomPreview() {
@@ -845,15 +985,13 @@ async function generateRandomPreview() {
 
         if (resp.preview) {
             updateWhatsappPreview(resp.preview);
-            
-            // Efeito visual de atualização na bolha
             const bubble = document.getElementById('whatsapp-bubble');
             if (bubble) {
                 bubble.classList.remove('bubble-highlight');
-                void bubble.offsetWidth; // trigger reflow
+                void bubble.offsetWidth;
                 bubble.classList.add('bubble-highlight');
             }
-            toast('Nova variação gerada para simulação!', 'info');
+            toast('Nova variação simulada!', 'info');
         }
     } catch (err) {
         toast('Erro ao gerar prévia: ' + err.message, 'error');
@@ -864,7 +1002,6 @@ async function handleImageSelected(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Preview imediato local via FileReader (só visual)
     const reader = new FileReader();
     reader.onload = (event) => {
         currentUploadedImageUrl = event.target.result;
@@ -878,13 +1015,9 @@ async function handleImageSelected(e) {
     try {
         toast('Fazendo upload da imagem...', 'info');
         const data = await api('/api/upload/image', { method: 'POST', body: formData });
-        
-        // Agora armazenamos a URL PÚBLICA que a API retornou
-        currentUploadedImageUrl = data.image_url; 
-        
+        currentUploadedImageUrl = data.image_url;
         const badge = document.getElementById('bc-image-preview-badge');
         if (badge) badge.classList.remove('hidden');
-        
         updateWhatsappPreview();
         toast('Imagem carregada com sucesso!', 'success');
     } catch (err) {
@@ -903,15 +1036,11 @@ function clearSelectedImage() {
     updateWhatsappPreview();
 }
 
+// ---------- INICIAR DISPARO ----------
 async function confirmAndStartBroadcast() {
     const text = document.getElementById('bc-message-text')?.value.trim();
     if (!text) {
         toast('Digite a mensagem antes de disparar.', 'error');
-        return;
-    }
-
-    if (selectedLeadIds.size === 0) {
-        toast('Selecione pelo menos 1 lead para enviar.', 'error');
         return;
     }
 
@@ -921,26 +1050,72 @@ async function confirmAndStartBroadcast() {
     const varySynonyms = document.getElementById('bc-vary-synonyms')?.checked ?? true;
     const imageUrl = currentUploadedImageUrl || document.getElementById('bc-image-url')?.value.trim() || null;
 
-    if (!confirm(`🚀 Iniciar disparo em massa para ${selectedLeadIds.size} leads selecionados com intervalos entre ${minDelay}s e ${maxDelay}s?`)) {
+    let payload = {
+        message_template: text,
+        image_url: imageUrl,
+        min_delay: minDelay,
+        max_delay: maxDelay,
+        vary_text: varyText,
+        vary_synonyms: varySynonyms,
+    };
+
+    let targetDescription = '';
+
+    if (broadcastTargetType === 'leads') {
+        if (selectedLeadIds.size === 0) {
+            toast('Selecione pelo menos 1 lead para enviar.', 'error');
+            return;
+        }
+        payload.kind = 'leads';
+        payload.lead_ids = Array.from(selectedLeadIds);
+        targetDescription = `${selectedLeadIds.size} leads selecionados`;
+    } else if (broadcastTargetType === 'pools') {
+        const poolId = document.getElementById('bc-pool-select')?.value;
+        if (!poolId) {
+            toast('Selecione um bolsão de leads.', 'error');
+            return;
+        }
+        // Encontra todos os leads deste bolsão
+        const poolLeads = allLeadsCache.filter(l => String(l.pool_id) === String(poolId));
+        if (poolLeads.length === 0) {
+            toast('Este bolsão não possui leads ativos cadastrados.', 'warning');
+            return;
+        }
+        payload.kind = 'leads';
+        payload.lead_ids = poolLeads.map(l => l.id);
+        const pool = poolsCache.find(p => String(p.id) === String(poolId));
+        targetDescription = `${poolLeads.length} leads do Bolsão "${pool?.name || ''}"`;
+    } else if (broadcastTargetType === 'groups') {
+        if (selectedGroupJids.size === 0) {
+            toast('Selecione pelo menos 1 grupo de WhatsApp.', 'error');
+            return;
+        }
+        payload.kind = 'groups';
+        payload.group_jids = Array.from(selectedGroupJids);
+        targetDescription = `${selectedGroupJids.size} grupos de WhatsApp`;
+    } else if (broadcastTargetType === 'segments') {
+        const segId = document.getElementById('bc-segment-select')?.value;
+        if (!segId) {
+            toast('Selecione um segmento.', 'error');
+            return;
+        }
+        payload.kind = 'leads';
+        payload.segment_id = segId;
+        const seg = segmentsCache.find(s => String(s.id) === String(segId));
+        targetDescription = `membros do segmento "${seg?.name || ''}"`;
+    }
+
+    if (!confirm(`🚀 Iniciar disparo em massa para ${targetDescription} com intervalos entre ${minDelay}s e ${maxDelay}s?`)) {
         return;
     }
 
     try {
         const resp = await api('/api/broadcast2/start', {
             method: 'POST',
-            body: {
-                kind: 'leads',
-                lead_ids: Array.from(selectedLeadIds),
-                message_template: text,
-                image_url: imageUrl,
-                min_delay: minDelay,
-                max_delay: maxDelay,
-                vary_text: varyText,
-                vary_synonyms: varySynonyms,
-            }
+            body: payload,
         });
 
-        toast(`Disparo iniciado para ${resp.total} leads!`, 'success');
+        toast(`Disparo iniciado para ${resp.total} destinatários!`, 'success');
         startBroadcastPolling();
     } catch (err) {
         toast(err.message, 'error');
@@ -998,7 +1173,7 @@ function updateBroadcastProgressUI(status) {
         titleEl.textContent = `🚀 Enviando para: ${status.current_lead_name || '...'} (${percent}%)`;
         subtitleEl.textContent = `Número: ${status.current_lead_phone || ''} | Fila em andamento com pausas naturais...`;
     } else {
-        titleEl.textContent = `🏁 Disparo Finalizado (${status.success} enviados com sucesso, ${status.failed} falhas)`;
+        titleEl.textContent = `🏁 Disparo Finalizado (${status.success} enviados, ${status.failed} falhas)`;
         subtitleEl.textContent = `Todos os ${total} contatos foram processados.`;
     }
 }
@@ -1016,10 +1191,251 @@ async function cancelActiveBroadcast() {
     if (!confirm('Deseja realmente interromper a fila de envios?')) return;
     try {
         await api('/api/broadcast2/cancel', { method: 'POST' });
-        toast('Solicitação de cancelamento enviada!', 'info');
+        toast('Cancelamento solicitado!', 'info');
     } catch (err) {
         toast(err.message, 'error');
     }
+}
+
+// ═══════════════════════════════════════════
+// BOLSÕES (POOLS)
+// ═══════════════════════════════════════════
+
+async function loadPools() {
+    const container = document.getElementById('pools-list');
+    if (!container) return;
+    try {
+        const data = await api('/api/pools');
+        poolsCache = data.pools || [];
+
+        if (poolsCache.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:2.5rem;color:var(--text-muted)">📦 Nenhum bolsão criado ainda. Clique em "Novo Bolsão" para começar.</div>';
+            return;
+        }
+
+        container.innerHTML = poolsCache.map(pool => {
+            const color = pool.color || 'var(--emerald)';
+            const statsObj = pool.stats || {};
+            const totalLeads = statsObj.total ?? 0;
+            const activeLeads = statsObj.active ?? 0;
+            const convertedLeads = statsObj.converted ?? 0;
+            const escapedName = (pool.name || '').replace(/'/g, "\\'");
+
+            return `
+                <div class="pool-card">
+                    <div>
+                        <div class="card-header" style="margin-bottom:0.5rem">
+                            <h3><span class="pool-dot" style="background:${color}"></span> ${pool.name || 'Sem nome'}</h3>
+                            <div style="display:flex;gap:0.35rem">
+                                <button class="btn btn-ghost btn-xs" title="Editar Bolsão" onclick="editPoolModal('${pool.id}')">✏️</button>
+                                <button class="btn btn-danger btn-xs" title="Excluir Bolsão" onclick="deletePool('${pool.id}','${escapedName}')">🗑️</button>
+                            </div>
+                        </div>
+                        <p class="text-sm text-secondary">${pool.description || 'Sem descrição informada.'}</p>
+                    </div>
+
+                    <div>
+                        <div class="pool-stats">
+                            <div class="pool-stat"><span class="value">${totalLeads}</span><span class="label">Leads</span></div>
+                            <div class="pool-stat"><span class="value" style="color:var(--indigo-hover)">${activeLeads}</span><span class="label">Ativos</span></div>
+                            <div class="pool-stat"><span class="value" style="color:var(--emerald)">${convertedLeads}</span><span class="label">Convertidos</span></div>
+                        </div>
+                        <div class="pool-card-actions">
+                            <button class="btn btn-accent btn-xs" style="flex:1" onclick="quickBroadcastToPool('${pool.id}')">⚡ Disparar</button>
+                            <button class="btn btn-secondary btn-xs" onclick="showAddLeadToPoolModal('${pool.id}', '${escapedName}')">+ Lead</button>
+                            <button class="btn btn-ghost btn-xs" onclick="showAssignLeadsToPoolModal('${pool.id}', '${escapedName}')">📥 Associar</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+function quickBroadcastToPool(poolId) {
+    navigateToPage('broadcast');
+    switchBroadcastTargetTab('pools');
+    const sel = document.getElementById('bc-pool-select');
+    if (sel) {
+        sel.value = poolId;
+        handleBroadcastPoolSelect(poolId);
+    }
+}
+
+function showAddPoolModal() {
+    openModal('➕ Novo Bolsão de Leads', `
+        <div class="form-group">
+            <label>Nome do Bolsão *</label>
+            <input type="text" id="pool-name" placeholder="Ex: Lançamento Grand Reserva VIP">
+        </div>
+        <div class="form-group">
+            <label>Descrição / Objetivo</label>
+            <textarea id="pool-description" rows="3" placeholder="Leads interessados em coberturas e apartamentos de 3 quartos..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Cor de Identificação</label>
+            <input type="color" id="pool-color" value="#10b981" style="height:42px;cursor:pointer">
+        </div>
+        <button type="button" class="btn btn-primary btn-full mt-2" onclick="createPool()">Criar Bolsão</button>
+    `);
+}
+
+async function createPool() {
+    const name = document.getElementById('pool-name').value.trim();
+    const description = document.getElementById('pool-description').value.trim();
+    const color = document.getElementById('pool-color').value;
+    if (!name) { toast('Informe o nome do bolsão', 'error'); return; }
+    try {
+        await api('/api/pools', { method: 'POST', body: { name, description, color } });
+        toast('Bolsão criado com sucesso!', 'success');
+        closeModal();
+        loadPools();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+function editPoolModal(poolId) {
+    const pool = poolsCache.find(p => String(p.id) === String(poolId));
+    if (!pool) { toast('Bolsão não encontrado', 'error'); return; }
+    openModal(`✏️ Editar Bolsão: ${pool.name}`, `
+        <div class="form-group">
+            <label>Nome *</label>
+            <input type="text" id="pool-edit-name" value="${(pool.name || '').replace(/"/g, '&quot;')}">
+        </div>
+        <div class="form-group">
+            <label>Descrição</label>
+            <textarea id="pool-edit-description" rows="3">${pool.description || ''}</textarea>
+        </div>
+        <div class="form-group">
+            <label>Cor de Identificação</label>
+            <input type="color" id="pool-edit-color" value="${pool.color || '#10b981'}" style="height:42px;cursor:pointer">
+        </div>
+        <button type="button" class="btn btn-primary btn-full mt-2" onclick="updatePool('${pool.id}')">Salvar Alterações</button>
+    `);
+}
+
+async function updatePool(poolId) {
+    const name = document.getElementById('pool-edit-name').value.trim();
+    const description = document.getElementById('pool-edit-description').value.trim();
+    const color = document.getElementById('pool-edit-color').value;
+    if (!name) { toast('Informe o nome do bolsão', 'error'); return; }
+    try {
+        await api(`/api/pools/${poolId}`, { method: 'PUT', body: { name, description, color } });
+        toast('Bolsão atualizado com sucesso!', 'success');
+        closeModal();
+        loadPools();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function deletePool(poolId, name) {
+    if (!confirm(`Excluir o bolsão "${name}"? Os leads não serão deletados, apenas desvinculados.`)) return;
+    try {
+        await api(`/api/pools/${poolId}`, { method: 'DELETE' });
+        toast('Bolsão excluído!', 'info');
+        loadPools();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+function showAddLeadToPoolModal(poolId, poolName) {
+    openModal(`➕ Adicionar Lead ao Bolsão: ${poolName}`, `
+        <form onsubmit="return submitAddLeadToPool(event, '${poolId}')">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Telefone *</label>
+                    <input type="text" id="pool-lead-phone" placeholder="(12) 99988-7766" required>
+                </div>
+                <div class="form-group">
+                    <label>Nome do Cliente</label>
+                    <input type="text" id="pool-lead-name" placeholder="Ex: Carlos Silva">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Tags de Interesse (separadas por vírgula)</label>
+                <input type="text" id="pool-lead-tags" placeholder="alto-padrao, 3quartos">
+            </div>
+            <button type="submit" class="btn btn-primary btn-full mt-2">Salvar Lead no Bolsão</button>
+        </form>
+    `);
+    setTimeout(() => {
+        const phoneInput = document.getElementById('pool-lead-phone');
+        if (phoneInput) applyPhoneMask(phoneInput);
+    }, 100);
+}
+
+async function submitAddLeadToPool(e, poolId) {
+    e.preventDefault();
+    const phone = document.getElementById('pool-lead-phone')?.value;
+    const name = document.getElementById('pool-lead-name')?.value;
+    const tags = document.getElementById('pool-lead-tags')?.value;
+    try {
+        await api(`/api/pools/${poolId}/add-number`, {
+            method: 'POST',
+            body: { phone, name, tags }
+        });
+        toast('Lead adicionado ao bolsão com sucesso!', 'success');
+        closeModal();
+        loadPools();
+    } catch (err) { toast(err.message, 'error'); }
+    return false;
+}
+
+async function showAssignLeadsToPoolModal(poolId, poolName) {
+    try {
+        const data = await api('/api/leads?limit=300');
+        const unassignedLeads = (data.leads || []).filter(l => !l.pool_id || String(l.pool_id) !== String(poolId));
+
+        if (unassignedLeads.length === 0) {
+            openModal(`Associar Leads — ${poolName}`, '<div style="padding:1.5rem;text-align:center;color:var(--text-muted)">Nenhum lead disponível para associação.</div>');
+            return;
+        }
+
+        openModal(`📥 Associar Leads ao Bolsão: ${poolName}`, `
+            <div class="text-sm text-secondary" style="margin-bottom:0.75rem">Selecione os leads que deseja mover para este bolsão:</div>
+            <div class="table-responsive" style="max-height:300px;overflow-y:auto;margin-bottom:1rem">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:36px"><input type="checkbox" onchange="toggleSelectAllModalLeads(this)"></th>
+                            <th>Nome</th>
+                            <th>Telefone</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${unassignedLeads.map(l => `
+                            <tr>
+                                <td><input type="checkbox" class="modal-lead-cb" value="${l.id}"></td>
+                                <td><strong>${l.name || 'Sem nome'}</strong></td>
+                                <td style="font-family:'JetBrains Mono',monospace;color:var(--emerald)">${formatPhoneDisplay(l.phone)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <button type="button" class="btn btn-primary btn-full" onclick="submitAssignLeadsToPool('${poolId}')">Confirmar Associação</button>
+        `);
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+function toggleSelectAllModalLeads(masterCb) {
+    document.querySelectorAll('.modal-lead-cb').forEach(cb => {
+        cb.checked = masterCb.checked;
+    });
+}
+
+async function submitAssignLeadsToPool(poolId) {
+    const selected = Array.from(document.querySelectorAll('.modal-lead-cb:checked')).map(cb => cb.value);
+    if (selected.length === 0) {
+        toast('Selecione ao menos 1 lead para associar.', 'error');
+        return;
+    }
+    try {
+        const res = await api(`/api/pools/${poolId}/leads`, {
+            method: 'POST',
+            body: { lead_ids: selected }
+        });
+        toast(`${res.count || selected.length} leads associados ao bolsão!`, 'success');
+        closeModal();
+        loadPools();
+    } catch (err) { toast(err.message, 'error'); }
 }
 
 // ═══════════════════════════════════════════
@@ -1045,7 +1461,7 @@ async function loadLeads() {
         const leads = data.leads || [];
 
         if (leads.length === 0) {
-            document.getElementById('leads-table-container').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">📭 Nenhum lead encontrado</div>';
+            document.getElementById('leads-table-container').innerHTML = '<div style="text-align:center;padding:2.5rem;color:var(--text-muted)">📭 Nenhum lead encontrado</div>';
             return;
         }
 
@@ -1058,7 +1474,7 @@ async function loadLeads() {
                     ${leads.map(l => `
                         <tr>
                             <td><strong>${l.name || 'Sem nome'}</strong></td>
-                            <td style="font-family:monospace;font-size:0.85rem;color:var(--accent)">${formatPhoneDisplay(l.phone)}</td>
+                            <td style="font-family:'JetBrains Mono',monospace;font-size:0.84rem;color:var(--emerald)">${formatPhoneDisplay(l.phone)}</td>
                             <td>${(l.tags || []).map(t => `<span class="tag">${t}</span>`).join(' ') || '—'}</td>
                             <td>D${l.remarketing_day || 0}${l.next_send_date ? ` → ${l.next_send_date}` : ''}</td>
                             <td>
@@ -1067,7 +1483,7 @@ async function loadLeads() {
                             </td>
                             <td>
                                 <div style="display:flex;gap:0.35rem">
-                                    <button class="btn btn-secondary btn-xs" title="Enviar Mensagem de Teste no WhatsApp" onclick="testLeadMessageModal('${l.id}', '${l.name || ''}', '${l.phone}')">💬 Testar</button>
+                                    <button class="btn btn-secondary btn-xs" title="Enviar Mensagem de Teste no WhatsApp" onclick="testLeadMessageModal('${l.id}', '${(l.name || '').replace(/'/g, "\\'")}', '${l.phone}')">💬 Testar</button>
                                     ${l.paused
                                         ? `<button class="btn btn-success btn-xs" title="Retomar Envios" onclick="resumeLead('${l.id}')">▶️</button>`
                                         : `<button class="btn btn-secondary btn-xs" title="Pausar Envios" onclick="pauseLead('${l.id}')">⏸️</button>`
@@ -1080,15 +1496,23 @@ async function loadLeads() {
                     `).join('')}
                 </tbody>
             </table></div>
-            <div class="text-muted text-sm" style="margin-top:0.75rem">
+            <div class="text-muted text-xs" style="margin-top:0.85rem">
                 Mostrando ${leads.length} leads de ${data.total} cadastrados
             </div>
         `;
     } catch (err) { console.error(err); }
 }
 
-function showAddLeadModal() {
-    openModal('Adicionar Novo Lead', `
+async function showAddLeadModal() {
+    let poolOptions = '<option value="">— Sem bolsão inicial —</option>';
+    try {
+        const data = await api('/api/pools');
+        (data.pools || []).forEach(p => {
+            poolOptions += `<option value="${p.id}">${p.name}</option>`;
+        });
+    } catch { }
+
+    openModal('➕ Adicionar Novo Lead', `
         <form onsubmit="return addLead(event)">
             <div class="form-row">
                 <div class="form-group">
@@ -1100,15 +1524,21 @@ function showAddLeadModal() {
                     <input type="text" id="add-name" placeholder="Ex: Roberto Carlos">
                 </div>
             </div>
-            <div class="form-group">
-                <label>Tags de Interesse (separadas por vírgula)</label>
-                <input type="text" id="add-tags" placeholder="luxo, 3quartos, zona-sul">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Bolsão de Destino</label>
+                    <select id="add-pool">${poolOptions}</select>
+                </div>
+                <div class="form-group">
+                    <label>Tags de Interesse (separadas por vírgula)</label>
+                    <input type="text" id="add-tags" placeholder="luxo, 3quartos, zona-sul">
+                </div>
             </div>
             <div class="form-group">
                 <label>Observações / Perfil</label>
                 <textarea id="add-notes" rows="3" placeholder="Interessado em cobertura com vista para o mar..."></textarea>
             </div>
-            <button type="submit" class="btn btn-primary btn-full">Salvar Lead no Bolsão</button>
+            <button type="submit" class="btn btn-primary btn-full">Salvar Lead</button>
         </form>
     `);
 
@@ -1121,6 +1551,9 @@ function showAddLeadModal() {
 async function addLead(e) {
     e.preventDefault();
     try {
+        const poolSel = document.getElementById('add-pool');
+        const pool_id = poolSel && poolSel.value ? poolSel.value : null;
+
         await api('/api/leads', {
             method: 'POST',
             body: {
@@ -1128,6 +1561,7 @@ async function addLead(e) {
                 name: document.getElementById('add-name').value,
                 tags: document.getElementById('add-tags').value,
                 notes: document.getElementById('add-notes').value,
+                pool_id: pool_id,
             }
         });
         toast('Lead adicionado com sucesso!', 'success');
@@ -1168,7 +1602,7 @@ async function editLeadModal(id) {
         const lead = (data.leads || []).find(l => l.id === id);
         if (!lead) { toast('Lead não encontrado', 'error'); return; }
 
-        openModal('Editar Lead', `
+        openModal(`✏️ Editar Lead: ${lead.name || lead.phone}`, `
             <form onsubmit="return updateLead(event, '${id}')">
                 <div class="form-group">
                     <label>Nome</label>
@@ -1233,11 +1667,11 @@ function testLeadMessageModal(id, name, phone) {
     const firstName = name ? name.split(' ')[0] : 'amigo(a)';
     const defaultText = `🤖 Olá ${firstName}, este é um teste de conexão do Bot Remarketing IMOB!`;
 
-    openModal(`Testar Envio no WhatsApp: ${displayName}`, `
+    openModal(`💬 Testar Envio no WhatsApp: ${displayName}`, `
         <form onsubmit="return sendLeadTestMessage(event, '${id}')">
             <div class="form-group">
                 <label>Destinatário</label>
-                <div style="font-family:monospace;color:var(--accent);font-weight:600;margin-bottom:0.75rem">${displayName} (${formattedPhone})</div>
+                <div style="font-family:'JetBrains Mono',monospace;color:var(--emerald);font-weight:600;margin-bottom:0.75rem">${displayName} (${formattedPhone})</div>
             </div>
             <div class="form-group">
                 <label>Texto da Mensagem de Teste</label>
@@ -1272,30 +1706,14 @@ async function sendLeadTestMessage(e, id) {
     return false;
 }
 
-async function forceDispatchCampaign(campId, campName) {
-    if (!confirm(`⚡ Deseja forçar o envio imediato de 1 mensagem do funil da campanha "${campName}" para o próximo lead elegível?`)) {
-        return;
-    }
-
-    try {
-        toast(`Processando disparo para a campanha "${campName}"...`, 'info');
-        const res = await api(`/api/campaigns/${campId}/dispatch-one`, { method: 'POST' });
-        toast(`✅ Disparo realizado com sucesso para: ${res.lead_name}`, 'success');
-        loadCampaigns();
-        loadDashboard();
-    } catch (err) {
-        toast(err.message, 'error');
-    }
-}
-
 function showImportModal() {
-    openModal('Importar Lista de Leads', `
+    openModal('📥 Importar Lista de Leads', `
         <div class="form-group">
             <label>Selecione arquivo CSV ou JSON</label>
             <input type="file" id="import-file" accept=".json,.csv" class="file-input-styled">
         </div>
         <button onclick="importLeads()" class="btn btn-primary btn-full mt-3">📥 Iniciar Importação</button>
-        <div class="text-muted text-sm mt-3">
+        <div class="text-muted text-xs mt-3">
             <strong>Exemplo CSV:</strong> telefone,nome,tags,notas<br>
             <code>5511999887766,Carlos Silva,alto-padrao;investidor,Interessado em Moema</code>
         </div>
@@ -1309,14 +1727,244 @@ async function importLeads() {
     formData.append('file', file);
     try {
         const data = await api('/api/leads/import', { method: 'POST', body: formData });
-        toast(`Importação: ${data.added} adicionados, ${data.skipped} duplicados, ${data.errors} erros`, 'success');
+        toast(`Importação concluída: ${data.added} adicionados, ${data.skipped} duplicados, ${data.errors} erros`, 'success');
         closeModal();
         loadLeads();
     } catch (err) { toast(err.message, 'error'); }
 }
 
 // ═══════════════════════════════════════════
-// CAMPANHAS & FUNIS
+// GRUPOS & CANAIS
+// ═══════════════════════════════════════════
+
+async function loadGroups() {
+    const container = document.getElementById('groups-list');
+    if (!container) return;
+    const journalOnlyEl = document.getElementById('groups-journal-only');
+    const journalOnly = journalOnlyEl ? journalOnlyEl.checked : false;
+    try {
+        const data = await api(journalOnly ? '/api/groups?journal=true' : '/api/groups');
+        const groups = data.groups || [];
+
+        if (groups.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:2.5rem;color:var(--text-muted)">💬 Nenhum grupo encontrado. Clique em "Sincronizar Grupos" acima.</div>';
+            return;
+        }
+
+        container.innerHTML = groups.map(g => {
+            const gname = g.name || g.subject || 'Grupo sem nome';
+            const count = (g.participants != null ? g.participants : (g.size != null ? g.size : null));
+            const isJournal = !!g.is_journal;
+            let poolBadge = '';
+            if (g.pool_id) {
+                const linkedPool = poolsCache.find(p => String(p.id) === String(g.pool_id));
+                poolBadge = `<span class="tag" style="margin-top:0.4rem;display:inline-block">📦 ${linkedPool ? linkedPool.name : g.pool_id}</span>`;
+            }
+            const journalBadge = isJournal ? '<span class="group-badge journal">📰 Jornal</span>' : '';
+            return `
+                <div class="group-card">
+                    <div class="card-header">
+                        <h3>${gname}</h3>
+                        <div style="display:flex;gap:0.35rem;align-items:center">
+                            ${journalBadge}
+                            <button class="btn btn-ghost btn-xs" title="Marcar/Desmarcar como Jornal" onclick="toggleJournal('${g.id}', ${!isJournal})">📰</button>
+                            <button class="btn btn-ghost btn-xs" title="Vincular a Bolsão" onclick="assignGroupPoolModal('${g.id}')">🗂️</button>
+                            <button class="btn btn-danger btn-xs" title="Remover" onclick="deleteGroup('${g.id}','${gname.replace(/'/g, "\\'")}')">🗑️</button>
+                        </div>
+                    </div>
+                    <p class="text-sm text-secondary">${count != null ? `${count} participantes` : 'Participantes não informados'}</p>
+                    ${poolBadge}
+                </div>
+            `;
+        }).join('');
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function syncGroups() {
+    toast('Sincronizando grupos com o WhatsApp...', 'info');
+    try {
+        const data = await api('/api/groups/sync', { method: 'POST' });
+        const count = (data.synced != null ? data.synced : (data.total != null ? data.total : null));
+        toast(count != null ? `${count} grupos sincronizados!` : 'Grupos sincronizados com sucesso!', 'success');
+        loadGroups();
+        loadBroadcastGroupsList();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function toggleJournal(id, isJournal) {
+    try {
+        await api(`/api/groups/${id}/journal`, { method: 'POST', body: { is_journal: isJournal } });
+        toast(isJournal ? 'Grupo marcado como Jornal' : 'Grupo desmarcado', 'success');
+        loadGroups();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function assignGroupPoolModal(id) {
+    try {
+        const data = await api('/api/pools');
+        const pools = data.pools || [];
+        if (pools.length === 0) {
+            openModal('Vincular a bolsão', '<div class="text-muted" style="padding:1rem 0">Nenhum bolsão disponível. Crie um bolsão primeiro na aba Bolsões.</div>');
+            return;
+        }
+        openModal('🗂️ Vincular Grupo a Bolsão', `
+            <div class="form-group">
+                <label>Selecione o Bolsão</label>
+                <select id="group-pool-select">
+                    ${pools.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+                </select>
+            </div>
+            <button type="button" class="btn btn-primary btn-full mt-2" onclick="assignGroupPool('${id}')">Vincular</button>
+        `);
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function assignGroupPool(id) {
+    const sel = document.getElementById('group-pool-select');
+    const poolId = sel ? sel.value : '';
+    if (!poolId) { toast('Selecione um bolsão', 'error'); return; }
+    try {
+        await api(`/api/groups/${id}/pool`, { method: 'POST', body: { pool_id: poolId } });
+        toast('Grupo vinculado ao bolsão com sucesso!', 'success');
+        closeModal();
+        loadGroups();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function deleteGroup(id, name) {
+    if (!confirm(`Remover o grupo "${name}" do painel?`)) return;
+    try {
+        await api(`/api/groups/${id}`, { method: 'DELETE' });
+        toast('Grupo removido', 'info');
+        loadGroups();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+// ═══════════════════════════════════════════
+// SEGMENTOS
+// ═══════════════════════════════════════════
+
+async function loadSegments() {
+    const container = document.getElementById('segments-list');
+    if (!container) return;
+    try {
+        const data = await api('/api/segments');
+        segmentsCache = data.segments || [];
+
+        if (segmentsCache.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:2.5rem;color:var(--text-muted)">🎯 Nenhum segmento criado ainda. Clique em "Novo Segmento" para começar.</div>';
+            return;
+        }
+
+        container.innerHTML = segmentsCache.map(seg => {
+            const memberCount = seg.member_count ?? 0;
+            const escapedName = (seg.name || '').replace(/'/g, "\\'");
+            return `
+                <div class="segment-card">
+                    <div class="card-header">
+                        <h3>${seg.name || 'Sem nome'}</h3>
+                        <div style="display:flex;gap:0.35rem">
+                            <button class="btn btn-ghost btn-xs" onclick="viewSegmentMembers('${seg.id}','${escapedName}')">👥 Membros</button>
+                            <button class="btn btn-danger btn-xs" onclick="deleteSegment('${seg.id}','${escapedName}')">🗑️</button>
+                        </div>
+                    </div>
+                    <p class="text-sm text-secondary">${seg.description || 'Sem descrição'}</p>
+                    <div class="text-xs text-muted mt-2">${memberCount} membro(s) cadastrados</div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function showAddSegmentModal() {
+    let poolOptions = '<option value="">— Sem bolsão vinculado —</option>';
+    try {
+        const data = await api('/api/pools');
+        (data.pools || []).forEach(p => {
+            poolOptions += `<option value="${p.id}">${p.name}</option>`;
+        });
+    } catch { }
+    openModal('➕ Novo Segmento', `
+        <div class="form-group">
+            <label>Nome do Segmento *</label>
+            <input type="text" id="segment-name" placeholder="Ex: Investidores Alto Padrão">
+        </div>
+        <div class="form-group">
+            <label>Descrição</label>
+            <textarea id="segment-description" rows="3" placeholder="Descrição dos critérios deste segmento..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Bolsão Vinculado</label>
+            <select id="segment-pool">${poolOptions}</select>
+        </div>
+        <button type="button" class="btn btn-primary btn-full mt-2" onclick="createSegment()">Criar Segmento</button>
+    `);
+}
+
+async function createSegment() {
+    const name = document.getElementById('segment-name').value.trim();
+    const description = document.getElementById('segment-description').value.trim();
+    const poolSel = document.getElementById('segment-pool');
+    const poolId = poolSel ? poolSel.value : '';
+    if (!name) { toast('Informe o nome do segmento', 'error'); return; }
+    const body = { name, description };
+    if (poolId) body.pool_id = poolId;
+    try {
+        await api('/api/segments', { method: 'POST', body });
+        toast('Segmento criado com sucesso!', 'success');
+        closeModal();
+        loadSegments();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function viewSegmentMembers(id, name) {
+    currentSegmentName = name;
+    try {
+        const data = await api(`/api/segments/${id}/members`);
+        const leadIds = data.lead_ids || [];
+        const title = name ? `👥 Membros: ${name}` : 'Membros do segmento';
+        if (leadIds.length === 0) {
+            openModal(title, '<div class="text-muted" style="padding:1.5rem;text-align:center">Nenhum membro neste segmento ainda.</div>');
+            return;
+        }
+        openModal(title, `
+            <div class="text-sm text-secondary" style="margin-bottom:0.75rem">${leadIds.length} membro(s)</div>
+            <div class="table-responsive" style="max-height:300px;overflow-y:auto">
+                <table>
+                    <thead><tr><th>Lead ID</th><th>Ação</th></tr></thead>
+                    <tbody>
+                        ${leadIds.map(leadId => `
+                            <tr>
+                                <td style="font-family:'JetBrains Mono',monospace;font-size:0.85rem">${leadId}</td>
+                                <td><button class="btn btn-danger btn-xs" onclick="removeSegmentMember('${id}', '${leadId}')">Remover</button></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `);
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function removeSegmentMember(segId, leadId) {
+    try {
+        await api(`/api/segments/${segId}/members/${leadId}`, { method: 'DELETE' });
+        toast('Membro removido', 'info');
+        viewSegmentMembers(segId, currentSegmentName);
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function deleteSegment(id, name) {
+    if (!confirm(`Excluir o segmento "${name}"?`)) return;
+    try {
+        await api(`/api/segments/${id}`, { method: 'DELETE' });
+        toast('Segmento excluído', 'info');
+        loadSegments();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+// ═══════════════════════════════════════════
+// CAMPANHAS
 // ═══════════════════════════════════════════
 
 async function loadCampaigns() {
@@ -1325,7 +1973,7 @@ async function loadCampaigns() {
         const campaigns = data.campaigns || [];
 
         if (campaigns.length === 0) {
-            document.getElementById('campaigns-list').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">📭 Nenhuma campanha cadastrada</div>';
+            document.getElementById('campaigns-list').innerHTML = '<div style="text-align:center;padding:2.5rem;color:var(--text-muted)">📭 Nenhuma campanha cadastrada</div>';
             return;
         }
 
@@ -1334,17 +1982,9 @@ async function loadCampaigns() {
             const isActive = c.status === 'active';
             const funnelDays = c.funnel_days || [1,2,3,5,7,14,30];
             const statusBadge = `<span class="badge badge-${c.status}">${c.status}</span>`;
-            const actionButtons = `
-                <button class="btn btn-primary btn-xs" title="Disparar para 1 lead elegível agora" onclick="forceDispatchCampaign('${c.id}', '${c.name}')">⚡ Forçar</button>
-                ${isActive
-                    ? `<button class="btn btn-secondary btn-xs" onclick="pauseCampaign('${c.id}')">⏸️ Pausar</button>`
-                    : `<button class="btn btn-success btn-xs" onclick="resumeCampaign('${c.id}')">▶️ Retomar</button>`
-                }
-                <button class="btn btn-secondary btn-xs" onclick="editCampaignModal('${c.id}')">✏️ Editar</button>
-                <button class="btn btn-secondary btn-xs" onclick="bulkEnterPool('${c.id}')">📥 Bolsão</button>
-                <button class="btn btn-danger btn-xs" onclick="deleteCampaign('${c.id}')">🗑️</button>
-            `;
             const funnelDivs = funnelDays.map(() => `<div class="funnel-day active"></div>`).join('');
+            const escapedName = (c.name || '').replace(/'/g, "\\'");
+
             return `
                 <div class="campaign-card">
                     <div class="campaign-header">
@@ -1358,7 +1998,14 @@ async function loadCampaigns() {
                         </div>
                         <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
                             ${statusBadge}
-                            ${actionButtons}
+                            <button class="btn btn-primary btn-xs" title="Disparar para 1 lead elegível agora" onclick="forceDispatchCampaign('${c.id}', '${escapedName}')">⚡ Forçar 1</button>
+                            ${isActive
+                                ? `<button class="btn btn-secondary btn-xs" onclick="pauseCampaign('${c.id}')">⏸️ Pausar</button>`
+                                : `<button class="btn btn-success btn-xs" onclick="resumeCampaign('${c.id}')">▶️ Retomar</button>`
+                            }
+                            <button class="btn btn-secondary btn-xs" onclick="editCampaignModal('${c.id}')">✏️ Editar</button>
+                            <button class="btn btn-secondary btn-xs" onclick="bulkEnterPool('${c.id}')">📥 Bolsão</button>
+                            <button class="btn btn-danger btn-xs" onclick="deleteCampaign('${c.id}')">🗑️</button>
                         </div>
                     </div>
                     <div class="funnel-progress">
@@ -1371,7 +2018,7 @@ async function loadCampaigns() {
 }
 
 function showCampaignModal() {
-    openModal('Criar Campanha de Remarketing', `
+    openModal('🚀 Criar Campanha de Remarketing', `
         <form onsubmit="return createCampaign(event)">
             <div class="form-group">
                 <label>Nome da Campanha *</label>
@@ -1464,6 +2111,32 @@ async function deleteCampaign(id) {
     } catch (err) { toast(err.message, 'error'); }
 }
 
+async function forceDispatchCampaign(campId, campName) {
+    if (!confirm(`⚡ Deseja forçar o envio de 1 mensagem do funil da campanha "${campName}" para o próximo lead elegível?`)) {
+        return;
+    }
+    try {
+        toast(`Processando disparo para "${campName}"...`, 'info');
+        const res = await api(`/api/campaigns/${campId}/dispatch-one`, { method: 'POST' });
+        toast(`✅ Disparo realizado para: ${res.lead_name}`, 'success');
+        loadCampaigns();
+        loadDashboard();
+    } catch (err) {
+        toast(err.message, 'error');
+    }
+}
+
+async function bulkEnterPool(campaignId) {
+    if (!confirm('Jogar todos os leads elegíveis para o início do funil desta campanha?')) return;
+    try {
+        const data = await api('/api/leads/bulk-pool', {
+            method: 'POST',
+            body: { campaign_id: campaignId }
+        });
+        toast(`${data.entered} leads entraram no bolsão de remarketing!`, 'success');
+    } catch (err) { toast(err.message, 'error'); }
+}
+
 async function editCampaignModal(id) {
     try {
         const data = await api('/api/campaigns');
@@ -1473,7 +2146,7 @@ async function editCampaignModal(id) {
         const cd = camp.custom_data || {};
         const funnel = (camp.funnel_days || [1,2,3,5,7,14,30]).join(', ');
 
-        openModal('Editar Campanha', `
+        openModal(`✏️ Editar Campanha: ${camp.name}`, `
             <form onsubmit="return updateCampaign(event, '${id}')">
                 <div class="form-group">
                     <label>Nome</label>
@@ -1533,26 +2206,15 @@ async function updateCampaign(e, id) {
                 },
             }
         });
-        toast('Campanha atualizada!', 'success');
+        toast('Campanha atualizada com sucesso!', 'success');
         closeModal();
         loadCampaigns();
     } catch (err) { toast(err.message, 'error'); }
     return false;
 }
 
-async function bulkEnterPool(campaignId) {
-    if (!confirm('Jogar todos os leads elegíveis para o início do funil desta campanha?')) return;
-    try {
-        const data = await api('/api/leads/bulk-pool', {
-            method: 'POST',
-            body: { campaign_id: campaignId }
-        });
-        toast(`${data.entered} leads entraram no bolsão de remarketing!`, 'success');
-    } catch (err) { toast(err.message, 'error'); }
-}
-
 // ═══════════════════════════════════════════
-// MESSAGES D1...D30
+// EDITOR D1...D30
 // ═══════════════════════════════════════════
 
 async function loadMessagesPage() {
@@ -1584,15 +2246,15 @@ async function loadCampaignMessages() {
             return `
                 <div class="day-message-card">
                     <div class="day-message-header">
-                        <span class="day-badge">📅 Dia ${day}</span>
+                        <span class="day-badge">📅 Mensagem do Dia ${day} (D${day})</span>
                         <div style="display:flex;gap:0.4rem">
-                            <button class="btn btn-ghost btn-xs" onclick="saveDayMessage('${campId}', ${day})">💾 Salvar</button>
-                            <button class="btn btn-danger btn-xs" onclick="deleteDayMessage('${campId}', ${day})">🗑️</button>
+                            <button class="btn btn-primary btn-xs" onclick="saveDayMessage('${campId}', ${day})">💾 Salvar</button>
+                            <button class="btn btn-danger btn-xs" onclick="deleteDayMessage('${campId}', ${day})">🗑️ Redefinir</button>
                         </div>
                     </div>
                     <div class="day-message-body">
-                        <textarea id="msg-day-${day}" rows="4" placeholder="Mensagem para o Dia ${day}...">${existing}</textarea>
-                        <p class="text-muted text-xs" style="margin-top:0.4rem">Use {primeiro_nome}, {empreendimento}, {link}, {preco}</p>
+                        <textarea id="msg-day-${day}" rows="4" placeholder="Escreva a mensagem personalizada para o Dia ${day}...">${existing}</textarea>
+                        <p class="text-muted text-xs" style="margin-top:0.4rem">Variáveis disponíveis: <code>{primeiro_nome}</code>, <code>{empreendimento}</code>, <code>{link}</code>, <code>{preco}</code>, <code>{destaque}</code></p>
                     </div>
                 </div>
             `;
@@ -1608,14 +2270,14 @@ async function saveDayMessage(campId, day) {
             method: 'PUT',
             body: { message_text: text }
         });
-        toast(`Mensagem do dia ${day} salva com sucesso!`, 'success');
+        toast(`Mensagem do Dia ${day} salva com sucesso!`, 'success');
     } catch (err) { toast(err.message, 'error'); }
 }
 
 async function deleteDayMessage(campId, day) {
     try {
         await api(`/api/campaigns/${campId}/messages/${day}`, { method: 'DELETE' });
-        toast(`Dia ${day} voltou para a mensagem inteligente automática`, 'info');
+        toast(`Dia ${day} redefinido para a mensagem inteligente padrão`, 'info');
         loadCampaignMessages();
     } catch (err) { toast(err.message, 'error'); }
 }
@@ -1632,13 +2294,13 @@ async function loadControlPage() {
         const statusClass = paused ? 'paused' : 'running';
         const statusText = paused ? '⏸️ Motor PAUSADO' : '▶️ Motor ATIVO';
         const btnHtml = paused
-            ? `<button class="btn btn-success btn-sm mt-3" onclick="engineResume()">▶️ Retomar Motor</button>`
-            : `<button class="btn btn-danger btn-sm mt-3" onclick="enginePause()">⏸️ Pausar Motor</button>`;
+            ? `<button class="btn btn-success btn-sm mt-3" onclick="engineResume()">▶️ Retomar Motor de Disparos</button>`
+            : `<button class="btn btn-danger btn-sm mt-3" onclick="enginePause()">⏸️ Pausar Motor de Disparos</button>`;
         document.getElementById('engine-control').innerHTML = `
             <div class="engine-status-indicator ${statusClass}" style="margin-bottom:1rem">
                 <span class="dot"></span>${statusText}
             </div>
-            <div class="text-sm text-muted">Disparos hoje: <strong>${status.daily_sent || 0}</strong></div>
+            <div class="text-sm text-secondary">Disparos realizados hoje: <strong>${status.daily_sent || 0}</strong></div>
             ${btnHtml}
         `;
 
@@ -1646,7 +2308,7 @@ async function loadControlPage() {
         const pausedLeads = leadsData.leads || [];
 
         if (pausedLeads.length === 0) {
-            document.getElementById('paused-leads-list').innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text-muted)">Nenhum lead com pausa individual</div>';
+            document.getElementById('paused-leads-list').innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text-muted)">Nenhum lead com pausa individual no momento</div>';
         } else {
             document.getElementById('paused-leads-list').innerHTML = `
                 <div class="table-responsive"><table>
@@ -1655,7 +2317,7 @@ async function loadControlPage() {
                         ${pausedLeads.map(l => `
                             <tr>
                                 <td>${l.name || 'Sem nome'}</td>
-                                <td style="font-family:monospace;font-size:0.85rem;color:var(--accent)">${formatPhoneDisplay(l.phone)}</td>
+                                <td style="font-family:'JetBrains Mono',monospace;color:var(--emerald)">${formatPhoneDisplay(l.phone)}</td>
                                 <td><button class="btn btn-success btn-xs" onclick="resumeLead('${l.id}')">▶️ Retomar</button></td>
                             </tr>
                         `).join('')}
@@ -1688,7 +2350,7 @@ async function loadDispatchLog() {
         const log = data.log || [];
 
         if (log.length === 0) {
-            document.getElementById('dispatch-log-table').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">📋 Nenhum registro de envio encontrado</div>';
+            document.getElementById('dispatch-log-table').innerHTML = '<div style="text-align:center;padding:2.5rem;color:var(--text-muted)">📋 Nenhum registro de envio encontrado</div>';
             return;
         }
 
@@ -1702,7 +2364,7 @@ async function loadDispatchLog() {
                         <tr>
                             <td style="white-space:nowrap">${formatDateTime(l.sent_at)}</td>
                             <td><strong>${l.lead_name || '—'}</strong></td>
-                            <td style="font-family:monospace;font-size:0.85rem;color:var(--accent)">${formatPhoneDisplay(l.lead_phone)}</td>
+                            <td style="font-family:'JetBrains Mono',monospace;color:var(--emerald)">${formatPhoneDisplay(l.lead_phone)}</td>
                             <td><span class="tag">${l.campaign_id}</span></td>
                             <td>D${l.remarketing_day || 0}</td>
                             <td><span class="badge badge-${l.status}">${l.status}</span></td>
@@ -1712,6 +2374,109 @@ async function loadDispatchLog() {
             </table></div>
         `;
     } catch (err) { console.error(err); }
+}
+
+// ═══════════════════════════════════════════
+// CONFIGURAÇÕES DA INSTÂNCIA
+// ═══════════════════════════════════════════
+
+async function loadInstanceSettings() {
+    const container = document.getElementById('settings-container');
+    if (!container) return;
+    container.innerHTML = '<p class="text-muted">Carregando configurações...</p>';
+    try {
+        const data = await api('/api/instance/settings');
+        container.innerHTML = `
+            <div class="settings-section" style="max-width:620px">
+                <div class="settings-section-header">⚙️ Configurações da Instância Ativa</div>
+                <div class="settings-section-body">
+                    <div class="settings-row">
+                        <div class="settings-row-info">
+                            <label>Nome de Exibição</label>
+                            <p>Como este número aparece no painel</p>
+                        </div>
+                        <input type="text" id="settings-display-name" style="width:220px" value="${data.display_name || ''}" placeholder="Ex: Corretor Roberto">
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-row-info">
+                            <label>Limite Diário de Disparos</label>
+                            <p>Máximo de mensagens por dia neste número</p>
+                        </div>
+                        <input type="number" id="settings-daily-limit" style="width:110px" value="${data.daily_limit ?? 40}" min="1" max="500">
+                    </div>
+                    <div class="settings-row">
+                        <div class="settings-row-info">
+                            <label>Modo Warmup (Aquecimento)</label>
+                            <p>Aquecimento gradual para números novos ou em maturação</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="settings-warmup" ${data.warmup_enabled ? 'checked' : ''}>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex;gap:0.75rem;margin-top:1.25rem;max-width:620px">
+                <button class="btn btn-primary" onclick="saveInstanceSettings()">💾 Salvar Configurações</button>
+                <button class="btn btn-secondary" onclick="openChangePasswordModal()">🔑 Alterar Senha</button>
+            </div>
+            <div id="settings-feedback" style="margin-top:0.75rem"></div>
+        `;
+    } catch (err) {
+        container.innerHTML = `<p class="text-danger">Erro ao carregar configurações: ${err.message}</p>`;
+    }
+}
+
+async function saveInstanceSettings() {
+    const display_name = document.getElementById('settings-display-name')?.value.trim() || null;
+    const daily_limit = parseInt(document.getElementById('settings-daily-limit')?.value) || null;
+    const warmup_enabled = document.getElementById('settings-warmup')?.checked ?? null;
+    const feedback = document.getElementById('settings-feedback');
+    try {
+        await api('/api/instance/settings', {
+            method: 'PUT',
+            body: JSON.stringify({ display_name, daily_limit, warmup_enabled })
+        });
+        toast('Configurações salvas com sucesso!', 'success');
+        if (feedback) feedback.innerHTML = '<span class="text-success text-sm">✔ Configurações salvas</span>';
+        setTimeout(() => { if (feedback) feedback.innerHTML = ''; }, 3000);
+        if (display_name) setActiveInstanceBadge(display_name);
+    } catch (err) {
+        toast('Erro ao salvar: ' + err.message, 'error');
+    }
+}
+
+function openChangePasswordModal() {
+    openModal('🔑 Alterar Senha da Instância', `
+        <div class="form-group">
+            <label>Nova Senha (mínimo 3 caracteres)</label>
+            <input type="password" id="new-instance-password" placeholder="Digite a nova senha" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+            <label>Confirmar Nova Senha</label>
+            <input type="password" id="confirm-instance-password" placeholder="Confirme a nova senha">
+        </div>
+        <div id="password-change-error" class="text-danger text-sm" style="min-height:1.2rem"></div>
+        <div style="display:flex;gap:.75rem;margin-top:1rem">
+            <button class="btn btn-primary" onclick="submitChangePassword()">Confirmar Alteração</button>
+            <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+        </div>
+    `);
+}
+
+async function submitChangePassword() {
+    const newPwd = document.getElementById('new-instance-password')?.value || '';
+    const confirmPwd = document.getElementById('confirm-instance-password')?.value || '';
+    const errEl = document.getElementById('password-change-error');
+    if (newPwd.length < 3) { if (errEl) errEl.textContent = 'A senha deve ter pelo menos 3 caracteres.'; return; }
+    if (newPwd !== confirmPwd) { if (errEl) errEl.textContent = 'As senhas não coincidem.'; return; }
+    try {
+        await api('/api/instance/password', { method: 'POST', body: JSON.stringify({ new_password: newPwd }) });
+        toast('Senha alterada com sucesso!', 'success');
+        closeModal();
+    } catch (err) {
+        if (errEl) errEl.textContent = err.message;
+    }
 }
 
 // ═══════════════════════════════════════════
@@ -1738,451 +2503,7 @@ function formatDateTime(isoStr) {
 }
 
 // ═══════════════════════════════════════════
-// BOLSÕES / GRUPOS / SEGMENTOS (V2)
-// ═══════════════════════════════════════════
-
-// ---------- BOLSÕES (POOLS) ----------
-
-async function loadPools() {
-    const container = document.getElementById('pools-list');
-    if (!container) return;
-    try {
-        const data = await api('/api/pools');
-        poolsCache = data.pools || [];
-
-        if (poolsCache.length === 0) {
-            container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">📦 Nenhum bolsão criado ainda. Clique em "Novo Bolsão" para começar.</div>';
-            return;
-        }
-
-        container.innerHTML = poolsCache.map(pool => {
-            const color = pool.color || 'var(--accent)';
-            const statsObj = pool.stats || {};
-            const totalLeads = statsObj.total ?? statsObj.leads ?? 0;
-            const activeLeads = statsObj.active ?? statsObj.ativos ?? 0;
-            const convertedLeads = statsObj.converted ?? statsObj.convertidos ?? 0;
-            return `
-                <div class="pool-card">
-                    <div class="card-header">
-                        <h3><span class="pool-dot" style="background:${color}"></span> ${pool.name || 'Sem nome'}</h3>
-                        <div style="display:flex;gap:0.4rem">
-                            <button class="btn btn-ghost btn-xs" onclick="editPoolModal('${pool.id}')">✏️</button>
-                            <button class="btn btn-danger btn-xs" onclick="deletePool('${pool.id}','${(pool.name || '').replace(/'/g, "\\'")}')">🗑️</button>
-                        </div>
-                    </div>
-                    <p class="text-muted text-sm">${pool.description || ''}</p>
-                    <div class="pool-stats">
-                        <div class="pool-stat"><span class="value">${totalLeads}</span><span class="label">Leads</span></div>
-                        <div class="pool-stat"><span class="value">${activeLeads}</span><span class="label">Ativos</span></div>
-                        <div class="pool-stat"><span class="value">${convertedLeads}</span><span class="label">Convertidos</span></div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    } catch (err) { toast(err.message, 'error'); }
-}
-
-function showAddPoolModal() {
-    openModal('Novo Bolsão', `
-        <div class="form-group">
-            <label>Nome *</label>
-            <input type="text" id="pool-name" placeholder="Nome do bolsão">
-        </div>
-        <div class="form-group">
-            <label>Descrição</label>
-            <textarea id="pool-description" rows="3" placeholder="Descrição do bolsão..."></textarea>
-        </div>
-        <div class="form-group">
-            <label>Cor</label>
-            <input type="color" id="pool-color" value="#25D366">
-        </div>
-        <button type="button" class="btn btn-primary btn-full mt-2" onclick="createPool()">Criar Bolsão</button>
-    `);
-}
-
-async function createPool() {
-    const name = document.getElementById('pool-name').value.trim();
-    const description = document.getElementById('pool-description').value.trim();
-    const color = document.getElementById('pool-color').value;
-    if (!name) { toast('Informe o nome do bolsão', 'error'); return; }
-    try {
-        await api('/api/pools', { method: 'POST', body: { name, description, color } });
-        toast('Bolsão criado', 'success');
-        closeModal();
-        loadPools();
-    } catch (err) { toast(err.message, 'error'); }
-}
-
-function editPoolModal(poolId) {
-    const pool = poolsCache.find(p => String(p.id) === String(poolId));
-    if (!pool) { toast('Bolsão não encontrado', 'error'); return; }
-    openModal('Editar Bolsão', `
-        <div class="form-group">
-            <label>Nome *</label>
-            <input type="text" id="pool-edit-name" value="${(pool.name || '').replace(/"/g, '&quot;')}">
-        </div>
-        <div class="form-group">
-            <label>Descrição</label>
-            <textarea id="pool-edit-description" rows="3">${pool.description || ''}</textarea>
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label>Cor</label>
-                <input type="color" id="pool-edit-color" value="${pool.color || '#25D366'}">
-            </div>
-            <div class="form-group">
-                <label>Status</label>
-                <input type="text" id="pool-edit-status" value="${pool.status || ''}" placeholder="ativo / inativo">
-            </div>
-        </div>
-        <button type="button" class="btn btn-primary btn-full mt-2" onclick="updatePool('${pool.id}')">Salvar Alterações</button>
-    `);
-}
-
-async function updatePool(poolId) {
-    const name = document.getElementById('pool-edit-name').value.trim();
-    const description = document.getElementById('pool-edit-description').value.trim();
-    const color = document.getElementById('pool-edit-color').value;
-    const status = document.getElementById('pool-edit-status').value.trim();
-    if (!name) { toast('Informe o nome do bolsão', 'error'); return; }
-    try {
-        await api(`/api/pools/${poolId}`, { method: 'PUT', body: { name, description, color, status } });
-        toast('Bolsão atualizado', 'success');
-        closeModal();
-        loadPools();
-    } catch (err) { toast(err.message, 'error'); }
-}
-
-async function deletePool(poolId, name) {
-    if (!confirm(`Excluir o bolsão "${name}"?`)) return;
-    try {
-        await api(`/api/pools/${poolId}`, { method: 'DELETE' });
-        toast('Bolsão excluído', 'info');
-        loadPools();
-    } catch (err) { toast(err.message, 'error'); }
-}
-
-// ---------- GRUPOS (GROUPS) ----------
-
-async function loadGroups() {
-    const container = document.getElementById('groups-list');
-    if (!container) return;
-    const journalOnlyEl = document.getElementById('groups-journal-only');
-    const journalOnly = journalOnlyEl ? journalOnlyEl.checked : false;
-    try {
-        const data = await api(journalOnly ? '/api/groups?journal=true' : '/api/groups');
-        const groups = data.groups || [];
-
-        if (groups.length === 0) {
-            container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">💬 Nenhum grupo encontrado. Clique em "Sincronizar grupos" para importar do WhatsApp.</div>';
-            return;
-        }
-
-        container.innerHTML = groups.map(g => {
-            const gname = g.name || g.subject || 'Grupo sem nome';
-            const count = (g.participants != null ? g.participants : (g.size != null ? g.size : null));
-            const isJournal = !!g.is_journal;
-            let poolBadge = '';
-            if (g.pool_id) {
-                const linkedPool = poolsCache.find(p => String(p.id) === String(g.pool_id));
-                poolBadge = `<span class="tag">📦 ${linkedPool ? linkedPool.name : g.pool_id}</span>`;
-            }
-            const journalBadge = isJournal ? '<span class="group-badge journal">📰 Jornal</span>' : '';
-            return `
-                <div class="group-card">
-                    <div class="card-header">
-                        <h3>${gname}</h3>
-                        <div style="display:flex;gap:0.4rem;align-items:center">
-                            ${journalBadge}
-                            <button class="btn btn-ghost btn-xs" onclick="toggleJournal('${g.id}', ${!isJournal})">📰</button>
-                            <button class="btn btn-ghost btn-xs" onclick="assignGroupPoolModal('${g.id}')">🗂️</button>
-                            <button class="btn btn-danger btn-xs" onclick="deleteGroup('${g.id}','${gname.replace(/'/g, "\\'")}')">🗑️</button>
-                        </div>
-                    </div>
-                    <p class="text-muted text-sm">${count != null ? count : '—'} participantes</p>
-                    ${poolBadge}
-                </div>
-            `;
-        }).join('');
-    } catch (err) { toast(err.message, 'error'); }
-}
-
-async function syncGroups() {
-    toast('Sincronizando grupos...', 'info');
-    try {
-        const data = await api('/api/groups/sync', { method: 'POST' });
-        const count = (data.synced != null ? data.synced : (data.total != null ? data.total : null));
-        toast(count != null ? `${count} grupos sincronizados!` : 'Grupos sincronizados com sucesso!', 'success');
-        loadGroups();
-    } catch (err) { toast(err.message, 'error'); }
-}
-
-async function toggleJournal(id, isJournal) {
-    try {
-        await api(`/api/groups/${id}/journal`, { method: 'POST', body: { is_journal: isJournal } });
-        toast(isJournal ? 'Grupo marcado como Jornal' : 'Grupo desmarcado', 'success');
-        loadGroups();
-    } catch (err) { toast(err.message, 'error'); }
-}
-
-async function assignGroupPoolModal(id) {
-    try {
-        const data = await api('/api/pools');
-        const pools = data.pools || [];
-        if (pools.length === 0) {
-            openModal('Vincular a bolsão', '<div class="text-muted" style="padding:1rem 0">Nenhum bolsão disponível. Crie um bolsão primeiro na aba Bolsões.</div>');
-            return;
-        }
-        openModal('Vincular a bolsão', `
-            <div class="form-group">
-                <label>Bolsão</label>
-                <select id="group-pool-select">
-                    ${pools.map(p => `<option value="${p.id}">${p.name || p.id}</option>`).join('')}
-                </select>
-            </div>
-            <button type="button" class="btn btn-primary btn-full mt-2" onclick="assignGroupPool('${id}')">Vincular</button>
-        `);
-    } catch (err) { toast(err.message, 'error'); }
-}
-
-async function assignGroupPool(id) {
-    const sel = document.getElementById('group-pool-select');
-    const poolId = sel ? sel.value : '';
-    if (!poolId) { toast('Selecione um bolsão', 'error'); return; }
-    try {
-        await api(`/api/groups/${id}/pool`, { method: 'POST', body: { pool_id: poolId } });
-        toast('Grupo vinculado ao bolsão', 'success');
-        closeModal();
-        loadGroups();
-    } catch (err) { toast(err.message, 'error'); }
-}
-
-async function deleteGroup(id, name) {
-    if (!confirm(`Remover o grupo "${name}"?`)) return;
-    try {
-        await api(`/api/groups/${id}`, { method: 'DELETE' });
-        toast('Grupo removido', 'info');
-        loadGroups();
-    } catch (err) { toast(err.message, 'error'); }
-}
-
-// ---------- SEGMENTOS (SEGMENTS) ----------
-
-async function loadSegments() {
-    const container = document.getElementById('segments-list');
-    if (!container) return;
-    try {
-        const data = await api('/api/segments');
-        const segments = data.segments || [];
-
-        if (segments.length === 0) {
-            container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">🎯 Nenhum segmento criado ainda. Clique em "Novo Segmento" para começar.</div>';
-            return;
-        }
-
-        container.innerHTML = segments.map(seg => {
-            const memberCount = seg.member_count ?? seg.members ?? 0;
-            return `
-                <div class="segment-card">
-                    <div class="card-header">
-                        <h3>${seg.name || 'Sem nome'}</h3>
-                        <div style="display:flex;gap:0.4rem">
-                            <button class="btn btn-ghost btn-xs" onclick="viewSegmentMembers('${seg.id}','${(seg.name || '').replace(/'/g, "\\'")}')">👥 Membros</button>
-                            <button class="btn btn-danger btn-xs" onclick="deleteSegment('${seg.id}','${(seg.name || '').replace(/'/g, "\\'")}')">🗑️</button>
-                        </div>
-                    </div>
-                    <p class="segment-description">${seg.description || ''}</p>
-                    <div style="font-size:0.78rem;color:var(--text-muted)">${memberCount} membros</div>
-                </div>
-            `;
-        }).join('');
-    } catch (err) { toast(err.message, 'error'); }
-}
-
-async function showAddSegmentModal() {
-    let poolOptions = '<option value="">— Sem bolsão —</option>';
-    try {
-        const data = await api('/api/pools');
-        (data.pools || []).forEach(p => {
-            poolOptions += `<option value="${p.id}">${p.name || p.id}</option>`;
-        });
-    } catch (err) { /* segue sem opções de bolsão */ }
-    openModal('Novo Segmento', `
-        <div class="form-group">
-            <label>Nome *</label>
-            <input type="text" id="segment-name" placeholder="Nome do segmento">
-        </div>
-        <div class="form-group">
-            <label>Descrição</label>
-            <textarea id="segment-description" rows="3" placeholder="Descrição do segmento..."></textarea>
-        </div>
-        <div class="form-group">
-            <label>Bolsão</label>
-            <select id="segment-pool">${poolOptions}</select>
-        </div>
-        <button type="button" class="btn btn-primary btn-full mt-2" onclick="createSegment()">Criar Segmento</button>
-    `);
-}
-
-async function createSegment() {
-    const name = document.getElementById('segment-name').value.trim();
-    const description = document.getElementById('segment-description').value.trim();
-    const poolSel = document.getElementById('segment-pool');
-    const poolId = poolSel ? poolSel.value : '';
-    if (!name) { toast('Informe o nome do segmento', 'error'); return; }
-    const body = { name, description };
-    if (poolId) body.pool_id = poolId;
-    try {
-        await api('/api/segments', { method: 'POST', body });
-        toast('Segmento criado', 'success');
-        closeModal();
-        loadSegments();
-    } catch (err) { toast(err.message, 'error'); }
-}
-
-async function viewSegmentMembers(id, name) {
-    try {
-        const data = await api(`/api/segments/${id}/members`);
-        const leadIds = data.lead_ids || [];
-        const title = name ? `Membros — ${name}` : 'Membros do segmento';
-        if (leadIds.length === 0) {
-            openModal(title, '<div class="text-muted" style="padding:1rem 0">Nenhum membro neste segmento ainda.</div>');
-            return;
-        }
-        openModal(title, `
-            <div class="text-muted text-sm" style="margin-bottom:0.75rem">${leadIds.length} membro(s)</div>
-            <div>
-                ${leadIds.map(leadId => `
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid var(--border)">
-                        <span style="font-family:monospace;font-size:0.85rem">${leadId}</span>
-                        <button class="btn btn-danger btn-xs" onclick="removeSegmentMember('${id}', '${leadId}')">Remover</button>
-                    </div>
-                `).join('')}
-            </div>
-        `);
-    } catch (err) { toast(err.message, 'error'); }
-}
-
-async function removeSegmentMember(segId, leadId) {
-    try {
-        await api(`/api/segments/${segId}/members/${leadId}`, { method: 'DELETE' });
-        toast('Membro removido', 'info');
-        viewSegmentMembers(segId, currentSegmentName);
-    } catch (err) { toast(err.message, 'error'); }
-}
-
-async function deleteSegment(id, name) {
-    if (!confirm(`Excluir o segmento "${name}"?`)) return;
-    try {
-        await api(`/api/segments/${id}`, { method: 'DELETE' });
-        toast('Segmento excluído', 'info');
-        loadSegments();
-    } catch (err) { toast(err.message, 'error'); }
-}
-
-// ═══ CONFIGURAÇÕES DA INSTÂNCIA ═══
-
-async function loadInstanceSettings() {
-  const container = document.getElementById('settings-container');
-  if (!container) return;
-  container.innerHTML = '<p class="text-muted">Carregando configurações...</p>';
-  try {
-    const data = await api('/api/instance/settings');
-    container.innerHTML = `
-        <div class="settings-section" style="max-width:600px">
-            <div class="settings-section-header">⚙️ Configurações da Instância</div>
-            <div class="settings-section-body">
-                <div class="settings-row">
-                    <div class="settings-row-info">
-                        <label>Nome de exibição</label>
-                        <p>Como este número aparece no painel</p>
-                    </div>
-                    <input type="text" id="settings-display-name" style="width:200px" value="${data.display_name || ''}" placeholder="Ex: Corretor João">
-                </div>
-                <div class="settings-row">
-                    <div class="settings-row-info">
-                        <label>Limite diário de disparos</label>
-                        <p>Máximo de mensagens por dia neste número</p>
-                    </div>
-                    <input type="number" id="settings-daily-limit" style="width:100px" value="${data.daily_limit ?? 40}" min="1" max="500">
-                </div>
-                <div class="settings-row">
-                    <div class="settings-row-info">
-                        <label>Modo warmup</label>
-                        <p>Aquecimento gradual para números novos</p>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="settings-warmup" ${data.warmup_enabled ? 'checked' : ''}>
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-            </div>
-        </div>
-        <div style="display:flex;gap:0.75rem;margin-top:1rem;max-width:600px">
-            <button class="btn btn-primary" onclick="saveInstanceSettings()">💾 Salvar</button>
-            <button class="btn btn-secondary" onclick="openChangePasswordModal()">🔑 Alterar Senha</button>
-        </div>
-        <div id="settings-feedback" style="margin-top:0.75rem"></div>
-    `;
-  } catch (err) {
-    container.innerHTML = `<p class="text-danger">Erro ao carregar configurações: ${err.message}</p>`;
-  }
-}
-
-async function saveInstanceSettings() {
-  const display_name = document.getElementById('settings-display-name')?.value.trim() || null;
-  const daily_limit = parseInt(document.getElementById('settings-daily-limit')?.value) || null;
-  const warmup_enabled = document.getElementById('settings-warmup')?.checked ?? null;
-  const feedback = document.getElementById('settings-feedback');
-  try {
-    await api('/api/instance/settings', {
-      method: 'PUT',
-      body: JSON.stringify({ display_name, daily_limit, warmup_enabled })
-    });
-    toast('Configurações salvas com sucesso!', 'success');
-    if (feedback) feedback.innerHTML = '<span class="text-success text-sm">✔ Salvo</span>';
-    setTimeout(() => { if (feedback) feedback.innerHTML = ''; }, 3000);
-    if (display_name) setActiveInstanceBadge(display_name);
-  } catch (err) {
-    toast('Erro ao salvar: ' + err.message, 'error');
-  }
-}
-
-function openChangePasswordModal() {
-  openModal('🔑 Alterar Senha da Instância', `
-    <div class="form-group">
-      <label>Nova senha (mínimo 3 caracteres)</label>
-      <input type="password" id="new-instance-password" class="form-control" placeholder="Nova senha" autocomplete="new-password">
-    </div>
-    <div class="form-group">
-      <label>Confirmar nova senha</label>
-      <input type="password" id="confirm-instance-password" class="form-control" placeholder="Confirmar senha">
-    </div>
-    <div id="password-change-error" class="text-danger text-sm" style="min-height:1.2rem"></div>
-    <div style="display:flex;gap:.75rem;margin-top:1rem">
-      <button class="btn btn-primary" onclick="submitChangePassword()">Confirmar</button>
-      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
-    </div>
-  `);
-}
-
-async function submitChangePassword() {
-  const newPwd = document.getElementById('new-instance-password')?.value || '';
-  const confirmPwd = document.getElementById('confirm-instance-password')?.value || '';
-  const errEl = document.getElementById('password-change-error');
-  if (newPwd.length < 3) { if (errEl) errEl.textContent = 'A senha deve ter pelo menos 3 caracteres.'; return; }
-  if (newPwd !== confirmPwd) { if (errEl) errEl.textContent = 'As senhas não coincidem.'; return; }
-  try {
-    await api('/api/instance/password', { method: 'POST', body: JSON.stringify({ new_password: newPwd }) });
-    toast('Senha alterada com sucesso!', 'success');
-    closeModal();
-  } catch (err) {
-    if (errEl) errEl.textContent = err.message;
-  }
-}
-
-// ═══════════════════════════════════════════
-// INIT
+// INICIALIZAÇÃO
 // ═══════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', checkAuth);

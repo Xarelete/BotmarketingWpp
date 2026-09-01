@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="IMOB Smart Bot - Painel de Remarketing Inteligente via WhatsApp para o mercado imobiliário">
-    <meta name="theme-color" content="#060818">
+    <meta name="description" content="IMOB Smart Bot — Painel de Remarketing Inteligente via WhatsApp para o mercado imobiliário">
+    <meta name="theme-color" content="#090d16">
     <title>IMOB Smart Bot — Painel de Remarketing</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4.1.1">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=5.0.0">
 </head>
 <body>
 
@@ -51,7 +52,7 @@
         <h2>📱 Selecione seu Número</h2>
         <p>Escolha o número do WhatsApp que deseja gerenciar.</p>
         <div id="instance-list"></div>
-        <div style="margin-top:1.25rem;text-align:center">
+        <div style="margin-top:1.5rem;text-align:center">
             <button type="button" class="btn btn-ghost btn-sm" onclick="showLogin()">
                 ← Entrar como administrador
             </button>
@@ -110,21 +111,21 @@
             <a class="nav-item" data-page="broadcast" data-tooltip="Disparo Rápido">
                 <span class="nav-icon">⚡</span>
                 <span class="nav-label">Disparo Rápido</span>
-                <span class="nav-badge">Novo</span>
+                <span class="nav-badge">Ao Vivo</span>
             </a>
 
-            <div class="nav-section-label">Leads & Grupos</div>
-            <a class="nav-item" data-page="leads" data-tooltip="Leads">
-                <span class="nav-icon">👥</span>
-                <span class="nav-label">Leads</span>
-            </a>
+            <div class="nav-section-label">Leads & Bolsões</div>
             <a class="nav-item" data-page="pools" data-tooltip="Bolsões">
                 <span class="nav-icon">🗂️</span>
                 <span class="nav-label">Bolsões</span>
             </a>
+            <a class="nav-item" data-page="leads" data-tooltip="Leads">
+                <span class="nav-icon">👥</span>
+                <span class="nav-label">Leads</span>
+            </a>
             <a class="nav-item" data-page="groups" data-tooltip="Grupos WA">
                 <span class="nav-icon">📣</span>
-                <span class="nav-label">Grupos WA</span>
+                <span class="nav-label">Grupos WA & Canais</span>
             </a>
             <a class="nav-item" data-page="segments" data-tooltip="Segmentos">
                 <span class="nav-icon">🎯</span>
@@ -142,11 +143,11 @@
             </a>
             <a class="nav-item" data-page="control" data-tooltip="Controle">
                 <span class="nav-icon">🎛️</span>
-                <span class="nav-label">Controle</span>
+                <span class="nav-label">Central de Controle</span>
             </a>
             <a class="nav-item" data-page="log" data-tooltip="Histórico">
                 <span class="nav-icon">📋</span>
-                <span class="nav-label">Histórico</span>
+                <span class="nav-label">Histórico de Envios</span>
             </a>
 
             <div class="nav-section-label">Sistema</div>
@@ -166,10 +167,10 @@
                 <span id="wpp-status-label">WhatsApp</span>
             </div>
             <div class="sidebar-footer-actions">
-                <button onclick="switchInstance()" class="btn btn-ghost btn-sm">🔄 Trocar</button>
-                <button onclick="handleLogout()" class="btn btn-ghost btn-sm">Sair</button>
+                <button onclick="switchInstance()" class="btn btn-ghost btn-sm" style="flex:1">🔄 Trocar</button>
+                <button onclick="handleLogout()" class="btn btn-ghost btn-sm" style="flex:1">Sair</button>
             </div>
-            <div class="version-badge">v4.1.0</div>
+            <div class="version-badge">v5.0.0 — Modern Slate</div>
         </div>
     </aside>
 
@@ -194,11 +195,11 @@
             <div class="dashboard-split mt-4">
                 <div class="card card-purple">
                     <h3>📡 Motor Automático</h3>
-                    <div id="engine-status-panel"></div>
+                    <div id="engine-status-panel" class="mt-2"></div>
                 </div>
                 <div class="card card-blue">
                     <h3>📋 Últimos Disparos</h3>
-                    <div id="recent-dispatches"></div>
+                    <div id="recent-dispatches" class="mt-2"></div>
                 </div>
             </div>
         </section>
@@ -208,27 +209,27 @@
             <div class="page-header">
                 <div>
                     <h1>Disparo Rápido</h1>
-                    <p class="page-subtitle">Envie mensagens instantâneas com preview ao vivo do WhatsApp.</p>
+                    <p class="page-subtitle">Envie mensagens instantâneas com preview ao vivo e humanização anti-spam.</p>
                 </div>
             </div>
 
             <!-- Progress bar -->
-            <div id="broadcast-progress-container" class="card card-purple hidden" style="margin-bottom:1.25rem">
+            <div id="broadcast-progress-container" class="card card-purple hidden" style="margin-bottom:1.5rem">
                 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem">
                     <div>
-                        <div id="broadcast-progress-title" style="font-weight:700;font-size:1rem">🚀 Disparo em andamento...</div>
+                        <div id="broadcast-progress-title" style="font-weight:700;font-size:1.05rem">🚀 Disparo em andamento...</div>
                         <div id="broadcast-progress-subtitle" class="text-muted text-sm" style="margin-top:0.2rem">Enviando com intervalos anti-bloqueio...</div>
                     </div>
-                    <button onclick="cancelActiveBroadcast()" class="btn btn-danger btn-sm">🛑 Cancelar</button>
+                    <button onclick="cancelActiveBroadcast()" class="btn btn-danger btn-sm">🛑 Cancelar Disparo</button>
                 </div>
                 <div class="progress-bar-bg">
                     <div id="broadcast-progress-bar" class="progress-bar-fill" style="width:0%"></div>
                 </div>
-                <div class="progress-stats" style="margin-top:0.75rem">
+                <div class="progress-stats" style="margin-top:0.85rem">
                     <span><strong id="prog-current">0</strong> / <strong id="prog-total">0</strong></span>
                     <span class="text-success">✅ <strong id="prog-success">0</strong></span>
                     <span class="text-danger">❌ <strong id="prog-failed">0</strong></span>
-                    <span class="text-muted">⏳ <strong id="prog-countdown">0s</strong></span>
+                    <span class="text-muted">⏳ Próximo em: <strong id="prog-countdown">0s</strong></span>
                 </div>
             </div>
 
@@ -237,12 +238,12 @@
                 <div class="broadcast-config">
                     <!-- Número remetente -->
                     <div class="card">
-                        <h3 style="margin-bottom:1rem">📱 Número Remetente</h3>
+                        <div class="card-header">
+                            <h3 style="margin:0">📱 Número Remetente</h3>
+                            <span id="instance-badge-status" class="badge badge-active">Conectado</span>
+                        </div>
                         <div class="form-group" style="margin-bottom:0">
-                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.45rem">
-                                <label style="margin:0">Instância WhatsApp</label>
-                                <span id="instance-badge-status" class="badge badge-active">Conectado</span>
-                            </div>
+                            <label>Instância WhatsApp Ativa</label>
                             <select id="bc-instance-select" onchange="handleInstanceChange(this.value)">
                                 <option value="">Carregando instâncias...</option>
                             </select>
@@ -251,73 +252,123 @@
 
                     <!-- Mensagem -->
                     <div class="card">
-                        <h3 style="margin-bottom:1rem">✍️ Mensagem</h3>
-                        <div class="form-group">
-                            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.45rem">
-                                <label style="margin:0">Texto da Mensagem</label>
-                                <div style="display:flex;gap:0.35rem;flex-wrap:wrap">
-                                    <button type="button" class="btn btn-ghost btn-xs" onclick="insertTag('{primeiro_nome}')">+ Nome</button>
-                                    <button type="button" class="btn btn-ghost btn-xs" onclick="insertTag('{telefone}')">+ Tel</button>
-                                    <button type="button" class="btn btn-ghost btn-xs" onclick="insertTag('{Olá|Oi|E aí?}')">+ Spintax</button>
-                                    <button type="button" class="btn btn-accent btn-xs" onclick="loadDefaultTemplate()">✨ Modelo</button>
-                                </div>
+                        <div class="card-header">
+                            <h3 style="margin:0">✍️ Mensagem Personalizada</h3>
+                            <div style="display:flex;gap:0.35rem;flex-wrap:wrap">
+                                <button type="button" class="btn btn-ghost btn-xs" onclick="insertTag('{primeiro_nome}')">+ Nome</button>
+                                <button type="button" class="btn btn-ghost btn-xs" onclick="insertTag('{telefone}')">+ Tel</button>
+                                <button type="button" class="btn btn-ghost btn-xs" onclick="insertTag('{empreendimento}')">+ Empreendimento</button>
+                                <button type="button" class="btn btn-ghost btn-xs" onclick="insertTag('{Olá|Oi|E aí?}')">+ Spintax</button>
+                                <button type="button" class="btn btn-accent btn-xs" onclick="loadDefaultTemplate()">✨ Modelo</button>
                             </div>
+                        </div>
+                        <div class="form-group">
                             <textarea id="bc-message-text" rows="6" placeholder="Digite sua mensagem... Use {primeiro_nome} para personalizar." oninput="updateWhatsappPreview()"></textarea>
                         </div>
                         <div class="form-group">
-                            <label>Imagem (opcional)</label>
-                            <input type="file" id="bc-image-file" accept="image/*" onchange="handleImageSelected(event)" style="margin-bottom:0.5rem">
-                            <input type="text" id="bc-image-url" placeholder="Ou cole URL da imagem..." oninput="updateWhatsappPreview()">
-                            <div id="bc-image-preview-badge" class="hidden" style="margin-top:0.5rem;display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;color:var(--success)">
-                                📸 Imagem selecionada
-                                <button type="button" onclick="clearSelectedImage()" class="btn btn-ghost btn-xs">✕</button>
+                            <label>Imagem ou Mídia (Opcional)</label>
+                            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                                <input type="file" id="bc-image-file" accept="image/*" onchange="handleImageSelected(event)" style="flex:1">
+                                <input type="text" id="bc-image-url" placeholder="Ou cole a URL da imagem..." oninput="updateWhatsappPreview()" style="flex:1">
+                            </div>
+                            <div id="bc-image-preview-badge" class="hidden" style="margin-top:0.6rem;display:flex;align-items:center;gap:0.5rem;font-size:0.84rem;color:var(--emerald)">
+                                📸 Imagem selecionada e pronta para envio
+                                <button type="button" onclick="clearSelectedImage()" class="btn btn-ghost btn-xs">✕ Remover</button>
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group" style="margin-bottom:0">
-                                <label>Delay mín. (seg)</label>
+                                <label>Intervalo Mín. (segundos)</label>
                                 <input type="number" id="bc-min-delay" value="15" min="5" max="300">
                             </div>
                             <div class="form-group" style="margin-bottom:0">
-                                <label>Delay máx. (seg)</label>
+                                <label>Intervalo Máx. (segundos)</label>
                                 <input type="number" id="bc-max-delay" value="40" min="10" max="600">
                             </div>
                         </div>
-                        <div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:1rem">
+                        <div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:1.15rem">
                             <label class="checkbox-container">
                                 <input type="checkbox" id="bc-vary-synonyms" checked onchange="updateWhatsappPreview()">
                                 <span class="checkmark"></span>
-                                ✨ Humanizador anti-spam (sinônimos)
+                                ✨ Humanizador anti-spam (variação automática de sinônimos)
                             </label>
                             <label class="checkbox-container">
                                 <input type="checkbox" id="bc-vary-text" checked onchange="updateWhatsappPreview()">
                                 <span class="checkmark"></span>
-                                🎭 Variação de emojis e pontuação
+                                🎭 Variação sutil de emojis e pontuações
                             </label>
                         </div>
                     </div>
 
-                    <!-- Destinatários -->
+                    <!-- Destinatários com Abas de Alvo -->
                     <div class="card">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem">
-                            <h3 style="margin:0">👥 Destinatários</h3>
-                            <span style="font-size:0.82rem;color:var(--text-muted)"><strong id="bc-selected-count" style="color:var(--accent)">0</strong> selecionados</span>
+                        <div class="card-header">
+                            <h3 style="margin:0">👥 Destinatários do Disparo</h3>
+                            <span style="font-size:0.84rem;color:var(--text-secondary)"><strong id="bc-selected-count" style="color:var(--emerald)">0</strong> selecionados</span>
                         </div>
-                        <div class="filters-bar">
-                            <input type="text" id="bc-lead-search" placeholder="Buscar lead..." oninput="renderBroadcastLeadsTable()">
-                            <select id="bc-lead-tag-filter" onchange="renderBroadcastLeadsTable()">
-                                <option value="">Todas as tags</option>
-                            </select>
+
+                        <!-- Target selection tabs -->
+                        <div class="target-tabs">
+                            <button type="button" class="target-tab-btn active" id="tab-btn-leads" onclick="switchBroadcastTargetTab('leads')">👥 Leads Individuais</button>
+                            <button type="button" class="target-tab-btn" id="tab-btn-pools" onclick="switchBroadcastTargetTab('pools')">🗂️ Bolsões de Leads</button>
+                            <button type="button" class="target-tab-btn" id="tab-btn-groups" onclick="switchBroadcastTargetTab('groups')">📣 Grupos WhatsApp</button>
+                            <button type="button" class="target-tab-btn" id="tab-btn-segments" onclick="switchBroadcastTargetTab('segments')">🎯 Segmentos</button>
                         </div>
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
-                            <label class="checkbox-container" style="font-size:0.82rem">
-                                <input type="checkbox" id="bc-select-all" onchange="toggleSelectAllBroadcastLeads(this)">
-                                <span class="checkmark"></span>
-                                Selecionar todos
-                            </label>
-                            <button type="button" class="btn btn-ghost btn-xs" onclick="clearBroadcastSelection()">Limpar</button>
+
+                        <!-- Target Tab: LEADS -->
+                        <div id="target-tab-leads-view">
+                            <div class="filters-bar">
+                                <input type="text" id="bc-lead-search" placeholder="Buscar lead por nome ou tel..." oninput="renderBroadcastLeadsTable()">
+                                <select id="bc-lead-tag-filter" onchange="renderBroadcastLeadsTable()">
+                                    <option value="">Todas as tags</option>
+                                </select>
+                            </div>
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem">
+                                <label class="checkbox-container" style="font-size:0.84rem">
+                                    <input type="checkbox" id="bc-select-all" onchange="toggleSelectAllBroadcastLeads(this)">
+                                    <span class="checkmark"></span>
+                                    Selecionar todos filtrados
+                                </label>
+                                <button type="button" class="btn btn-ghost btn-xs" onclick="clearBroadcastSelection()">Limpar seleção</button>
+                            </div>
+                            <div id="bc-leads-table-container" class="table-responsive" style="max-height:280px;overflow-y:auto"></div>
                         </div>
-                        <div id="bc-leads-table-container" class="table-responsive"></div>
+
+                        <!-- Target Tab: POOLS -->
+                        <div id="target-tab-pools-view" class="hidden">
+                            <div class="form-group">
+                                <label>Selecione o Bolsão para Envio em Massa</label>
+                                <select id="bc-pool-select" onchange="handleBroadcastPoolSelect(this.value)">
+                                    <option value="">Carregando bolsões...</option>
+                                </select>
+                            </div>
+                            <div id="bc-pool-info-box" class="text-sm text-secondary" style="padding:0.75rem;background:rgba(15,23,42,0.6);border-radius:var(--radius-sm);border:1px solid var(--border)">
+                                Selecione um bolsão acima para carregar automaticamente todos os contatos vinculados.
+                            </div>
+                        </div>
+
+                        <!-- Target Tab: GROUPS -->
+                        <div id="target-tab-groups-view" class="hidden">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
+                                <span class="text-sm text-secondary">Grupos sincronizados do WhatsApp</span>
+                                <button type="button" class="btn btn-ghost btn-xs" onclick="syncGroups()">🔄 Sincronizar</button>
+                            </div>
+                            <div id="bc-groups-list-container" style="max-height:280px;overflow-y:auto"></div>
+                        </div>
+
+                        <!-- Target Tab: SEGMENTS -->
+                        <div id="target-tab-segments-view" class="hidden">
+                            <div class="form-group">
+                                <label>Selecione o Segmento</label>
+                                <select id="bc-segment-select" onchange="handleBroadcastSegmentSelect(this.value)">
+                                    <option value="">Carregando segmentos...</option>
+                                </select>
+                            </div>
+                            <div id="bc-segment-info-box" class="text-sm text-secondary" style="padding:0.75rem;background:rgba(15,23,42,0.6);border-radius:var(--radius-sm);border:1px solid var(--border)">
+                                Selecione um segmento para disparar para todos os seus membros.
+                            </div>
+                        </div>
+
                         <button type="button" id="btn-start-broadcast" class="btn btn-primary btn-full btn-lg" style="margin-top:1.25rem" onclick="confirmAndStartBroadcast()">
                             🚀 Iniciar Disparo
                         </button>
@@ -354,39 +405,12 @@
             </div>
         </section>
 
-        <!-- ── LEADS ── -->
-        <section id="page-leads" class="page">
-            <div class="page-header">
-                <div>
-                    <h1>Leads</h1>
-                    <p class="page-subtitle">Gerencie, segmente e controle pausas individuais.</p>
-                </div>
-                <div class="header-actions">
-                    <button onclick="showAddLeadModal()" class="btn btn-primary btn-sm">+ Novo Lead</button>
-                    <button onclick="showImportModal()" class="btn btn-secondary btn-sm">📥 Importar</button>
-                </div>
-            </div>
-            <div class="filters-bar">
-                <input type="text" id="leads-search" placeholder="Buscar por nome ou telefone..." oninput="debounceLeadSearch()">
-                <select id="leads-status-filter" onchange="loadLeads()">
-                    <option value="">Todos os status</option>
-                    <option value="active" selected>Ativos</option>
-                    <option value="inactive">Inativos</option>
-                    <option value="completed">Completaram funil</option>
-                    <option value="converted">Convertidos</option>
-                </select>
-            </div>
-            <div class="card">
-                <div id="leads-table-container"></div>
-            </div>
-        </section>
-
-        <!-- ── BOLSÕES ── -->
+        <!-- ── BOLSÕES (POOLS) ── -->
         <section id="page-pools" class="page">
             <div class="page-header">
                 <div>
-                    <h1>Bolsões</h1>
-                    <p class="page-subtitle">Organize leads por empreendimento, campanha ou perfil.</p>
+                    <h1>Bolsões de Leads</h1>
+                    <p class="page-subtitle">Organize e dispare para leads agrupados por empreendimento, campanha ou perfil.</p>
                 </div>
                 <div class="header-actions">
                     <button onclick="showAddPoolModal()" class="btn btn-primary btn-sm">➕ Novo Bolsão</button>
@@ -395,20 +419,47 @@
             <div id="pools-list"></div>
         </section>
 
-        <!-- ── GRUPOS ── -->
+        <!-- ── LEADS ── -->
+        <section id="page-leads" class="page">
+            <div class="page-header">
+                <div>
+                    <h1>Gestão de Leads</h1>
+                    <p class="page-subtitle">Gerencie contatos, status no funil, pausas individuais e bolsões.</p>
+                </div>
+                <div class="header-actions">
+                    <button onclick="showAddLeadModal()" class="btn btn-primary btn-sm">+ Novo Lead</button>
+                    <button onclick="showImportModal()" class="btn btn-secondary btn-sm">📥 Importar Lista</button>
+                </div>
+            </div>
+            <div class="filters-bar">
+                <input type="text" id="leads-search" placeholder="Buscar por nome ou telefone..." oninput="debounceLeadSearch()">
+                <select id="leads-status-filter" onchange="loadLeads()">
+                    <option value="">Todos os status</option>
+                    <option value="active" selected>Ativos no Funil</option>
+                    <option value="inactive">Inativos</option>
+                    <option value="completed">Completaram Funil</option>
+                    <option value="converted">Convertidos / Venda</option>
+                </select>
+            </div>
+            <div class="card">
+                <div id="leads-table-container"></div>
+            </div>
+        </section>
+
+        <!-- ── GRUPOS & CANAIS ── -->
         <section id="page-groups" class="page">
             <div class="page-header">
                 <div>
-                    <h1>Grupos WhatsApp</h1>
-                    <p class="page-subtitle">Sincronize grupos, marque o Jornal da Construtora e vincule a bolsões.</p>
+                    <h1>Grupos WhatsApp & Canais</h1>
+                    <p class="page-subtitle">Sincronize grupos do WhatsApp, marque o Jornal da Construtora e vincule a bolsões.</p>
                 </div>
                 <div class="header-actions">
-                    <label class="checkbox-container" style="font-size:0.82rem">
+                    <label class="checkbox-container" style="font-size:0.84rem">
                         <input type="checkbox" id="groups-journal-only" onchange="loadGroups()">
                         <span class="checkmark"></span>
                         Somente Jornal
                     </label>
-                    <button onclick="syncGroups()" class="btn btn-primary btn-sm">🔄 Sincronizar</button>
+                    <button onclick="syncGroups()" class="btn btn-primary btn-sm">🔄 Sincronizar Grupos</button>
                 </div>
             </div>
             <div id="groups-list"></div>
@@ -419,7 +470,7 @@
             <div class="page-header">
                 <div>
                     <h1>Segmentos</h1>
-                    <p class="page-subtitle">Listas internas de leads para disparos segmentados.</p>
+                    <p class="page-subtitle">Listas segmentadas de leads para disparos direcionados.</p>
                 </div>
                 <div class="header-actions">
                     <button onclick="showAddSegmentModal()" class="btn btn-primary btn-sm">➕ Novo Segmento</button>
@@ -432,8 +483,8 @@
         <section id="page-campaigns" class="page">
             <div class="page-header">
                 <div>
-                    <h1>Campanhas</h1>
-                    <p class="page-subtitle">Funis automatizados de remarketing por empreendimento.</p>
+                    <h1>Campanhas de Remarketing</h1>
+                    <p class="page-subtitle">Funis automatizados de mensagens sequenciais por empreendimento.</p>
                 </div>
                 <div class="header-actions">
                     <button onclick="showCampaignModal()" class="btn btn-primary btn-sm">+ Nova Campanha</button>
@@ -442,17 +493,17 @@
             <div id="campaigns-list"></div>
         </section>
 
-        <!-- ── EDITOR DE MENSAGENS ── -->
+        <!-- ── EDITOR DE MENSAGENS D1–D30 ── -->
         <section id="page-messages" class="page">
             <div class="page-header">
                 <div>
-                    <h1>Editor D1–D30</h1>
-                    <p class="page-subtitle">Defina o que cada lead recebe no D1, D2, D3, D5, D7, D14, D30.</p>
+                    <h1>Editor de Mensagens D1–D30</h1>
+                    <p class="page-subtitle">Configure as mensagens automáticas de cada dia do funil (D1, D2, D3, D5, D7, D14, D30).</p>
                 </div>
             </div>
-            <div class="card" style="margin-bottom:1.25rem">
+            <div class="card" style="margin-bottom:1.5rem">
                 <div class="form-group" style="margin-bottom:0">
-                    <label>Campanha</label>
+                    <label>Selecione a Campanha</label>
                     <select id="msg-campaign-select" onchange="loadCampaignMessages()">
                         <option value="">Selecione uma campanha...</option>
                     </select>
@@ -461,26 +512,26 @@
             <div id="messages-editor"></div>
         </section>
 
-        <!-- ── CONTROLE ── -->
+        <!-- ── CENTRAL DE CONTROLE ── -->
         <section id="page-control" class="page">
             <div class="page-header">
                 <div>
                     <h1>Central de Controle</h1>
-                    <p class="page-subtitle">Pausa geral de emergência e leads com envio suspenso.</p>
+                    <p class="page-subtitle">Pausa geral de emergência do motor e controle de leads suspensos.</p>
                 </div>
             </div>
             <div class="control-grid">
                 <div class="control-card">
                     <span class="control-icon">🔌</span>
-                    <h3>Motor de Disparos</h3>
-                    <p>Controle o motor automático de envios do funil.</p>
-                    <div id="engine-control"></div>
+                    <h3>Motor Automático de Disparos</h3>
+                    <p>Controle global de envio das mensagens do funil de remarketing.</p>
+                    <div id="engine-control" class="mt-2"></div>
                 </div>
                 <div class="control-card">
                     <span class="control-icon">⏸️</span>
-                    <h3>Leads Pausados</h3>
-                    <p>Leads com envio suspenso individualmente.</p>
-                    <div id="paused-leads-list"></div>
+                    <h3>Leads com Pausa Individual</h3>
+                    <p>Leads que tiveram seus envios pausados manualmente.</p>
+                    <div id="paused-leads-list" class="mt-2"></div>
                 </div>
             </div>
         </section>
@@ -490,7 +541,7 @@
             <div class="page-header">
                 <div>
                     <h1>Histórico de Envios</h1>
-                    <p class="page-subtitle">Logs e status de entrega de cada mensagem disparada.</p>
+                    <p class="page-subtitle">Registro completo e status de entrega de cada mensagem disparada.</p>
                 </div>
                 <div class="header-actions">
                     <button onclick="loadDispatchLog()" class="btn btn-secondary btn-sm">🔄 Atualizar</button>
@@ -505,8 +556,8 @@
         <section id="page-settings" class="page">
             <div class="page-header">
                 <div>
-                    <h1>Configurações</h1>
-                    <p class="page-subtitle">Gerencie as configurações da sua instância (número).</p>
+                    <h1>Configurações da Instância</h1>
+                    <p class="page-subtitle">Gerencie nome de exibição, limites diários, warmup e senhas deste número.</p>
                 </div>
             </div>
             <div id="settings-container"></div>
@@ -529,6 +580,6 @@
 <!-- TOASTS -->
 <div id="toast-container" class="toast-container"></div>
 
-<script src="{{ url_for('static', filename='js/app.js') }}?v=4.1.1" defer></script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v=5.0.0" defer></script>
 </body>
 </html>
