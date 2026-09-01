@@ -29,6 +29,13 @@ def create_app() -> Flask:
     app.config["SESSION_COOKIE_SECURE"] = os.environ.get("RENDER", "") != ""
     app.config["SESSION_COOKIE_HTTPONLY"] = True
 
+    @app.after_request
+    def add_no_cache_headers(response):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "-1"
+        return response
+
     # ═══════════════════════════════════════════════════════════════
     # ROTAS DE PÁGINAS
     # ═══════════════════════════════════════════════════════════════

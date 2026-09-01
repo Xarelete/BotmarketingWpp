@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="IMOB Smart Bot — Painel de Remarketing Inteligente via WhatsApp para o mercado imobiliário">
-    <meta name="theme-color" content="#070a12">
+    <meta name="theme-color" content="#06080f">
     <title>IMOB Smart Bot — Painel de Remarketing</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6.0.0">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=7.0.0">
 </head>
 <body>
 
@@ -91,7 +91,7 @@
         <div class="sidebar-header">
             <div class="sidebar-logo">
                 <div class="logo-mark">
-                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#fff">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="#fff">
                         <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
                     </svg>
                 </div>
@@ -170,7 +170,7 @@
                 <button onclick="switchInstance()" class="btn btn-ghost btn-sm" style="flex:1">🔄 Trocar</button>
                 <button onclick="handleLogout()" class="btn btn-ghost btn-sm" style="flex:1">Sair</button>
             </div>
-            <div class="version-badge">v6.0.0 — Aurora Glass</div>
+            <div class="version-badge">v7.0.0 — Aurora Glass</div>
         </div>
     </aside>
 
@@ -346,7 +346,7 @@
                                     <option value="">Carregando bolsões...</option>
                                 </select>
                             </div>
-                            <div id="bc-pool-info-box" class="text-sm text-secondary" style="padding:0.9rem;background:rgba(10,15,29,0.7);border-radius:var(--radius-sm);border:1px solid var(--border)">
+                            <div id="bc-pool-info-box" class="text-sm text-secondary" style="padding:0.9rem;background:rgba(8,12,23,0.85);border-radius:var(--radius-sm);border:1px solid var(--border)">
                                 Selecione um bolsão acima para carregar automaticamente todos os contatos vinculados.
                             </div>
                         </div>
@@ -368,7 +368,7 @@
                                     <option value="">Carregando segmentos...</option>
                                 </select>
                             </div>
-                            <div id="bc-segment-info-box" class="text-sm text-secondary" style="padding:0.9rem;background:rgba(10,15,29,0.7);border-radius:var(--radius-sm);border:1px solid var(--border)">
+                            <div id="bc-segment-info-box" class="text-sm text-secondary" style="padding:0.9rem;background:rgba(8,12,23,0.85);border-radius:var(--radius-sm);border:1px solid var(--border)">
                                 Selecione um segmento para disparar para todos os seus membros.
                             </div>
                         </div>
@@ -379,9 +379,12 @@
                     </div>
                 </div>
 
-                <!-- Preview col -->
+                <!-- Preview col (iPhone 16 Pro Mockup) -->
                 <div class="broadcast-preview-col">
                     <div class="phone-mockup">
+                        <div class="phone-island-bar">
+                            <div class="dynamic-island"></div>
+                        </div>
                         <div class="phone-screen">
                             <div class="phone-header">
                                 <div class="phone-avatar">👤</div>
@@ -584,6 +587,6 @@
 <!-- TOASTS -->
 <div id="toast-container" class="toast-container"></div>
 
-<script src="{{ url_for('static', filename='js/app.js') }}?v=6.0.0" defer></script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v=7.0.0" defer></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 /* =============================================================================
    BotRemarketingIMOB — SPA App & Simulador WhatsApp (Vanilla JS)
-   Version: 5.0.0 — Modern Slate UI & Multi-Target Broadcast
+   Version: 7.0.0 — Quantum Aurora Glass UI & iPhone 16 Pro Live Mockup
    ============================================================================= */
 
 // Estado global da aplicação
