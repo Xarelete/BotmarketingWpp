@@ -478,37 +478,53 @@ async function loadDashboard() {
         const engine = data.engine || {};
 
         document.getElementById('stats-grid').innerHTML = `
-            <div class="stat-card">
-                <span class="stat-icon">👥</span>
-                <div class="stat-value">${leads.active || 0}</div>
+            <div class="stat-card" data-color="purple">
+                <div class="stat-icon">👥</div>
+                <div class="stat-value" data-target="${leads.active || 0}">0</div>
                 <div class="stat-label">Leads no Bolsão</div>
             </div>
-            <div class="stat-card">
-                <span class="stat-icon">🔄</span>
-                <div class="stat-value">${leads.in_funnel || 0}</div>
+            <div class="stat-card" data-color="blue">
+                <div class="stat-icon">🔄</div>
+                <div class="stat-value" data-target="${leads.in_funnel || 0}">0</div>
                 <div class="stat-label">Em Remarketing Ativo</div>
             </div>
-            <div class="stat-card">
-                <span class="stat-icon">⏸️</span>
-                <div class="stat-value">${leads.paused || 0}</div>
+            <div class="stat-card" data-color="gold">
+                <div class="stat-icon">⏸️</div>
+                <div class="stat-value" data-target="${leads.paused || 0}">0</div>
                 <div class="stat-label">Envios Pausados</div>
             </div>
-            <div class="stat-card">
-                <span class="stat-icon">🚀</span>
-                <div class="stat-value">${engine.active_campaigns || 0}</div>
+            <div class="stat-card" data-color="green">
+                <div class="stat-icon">🚀</div>
+                <div class="stat-value" data-target="${engine.active_campaigns || 0}">0</div>
                 <div class="stat-label">Campanhas Ativas</div>
             </div>
-            <div class="stat-card">
-                <span class="stat-icon">✅</span>
-                <div class="stat-value">${leads.completed || 0}</div>
+            <div class="stat-card" data-color="info">
+                <div class="stat-icon">✅</div>
+                <div class="stat-value" data-target="${leads.completed || 0}">0</div>
                 <div class="stat-label">Completaram Funil</div>
             </div>
-            <div class="stat-card">
-                <span class="stat-icon">🏆</span>
-                <div class="stat-value">${leads.converted || 0}</div>
+            <div class="stat-card" data-color="danger">
+                <div class="stat-icon">🏆</div>
+                <div class="stat-value" data-target="${leads.converted || 0}">0</div>
                 <div class="stat-label">Leads Convertidos</div>
             </div>
         `;
+
+        // Animate stat counters
+        document.querySelectorAll('.stat-value[data-target]').forEach(el => {
+            const target = parseInt(el.dataset.target) || 0;
+            if (target === 0) { el.textContent = '0'; return; }
+            const duration = 800;
+            const start = performance.now();
+            function step(now) {
+                const elapsed = now - start;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+                el.textContent = Math.round(eased * target);
+                if (progress < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+        });
 
         const paused = engine.engine_paused;
         const statusClass = paused ? 'paused' : 'running';
