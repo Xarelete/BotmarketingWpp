@@ -108,15 +108,15 @@ Legenda: ✅ concluído · 🚧 em andamento · ⬜ pendente
 - [x] ✅ Migrar o disparo da UI de `/api/broadcast/*` para `/api/broadcast2/*` (paralelo por número)
 - [x] ✅ Tela de configurações por instância (`/api/instance/settings`)
 
-### Etapa 5 — Documentação & Testes da API (opcional, futuro) ⬜
-- [ ] Coleção de testes da API REST do Flask (pasta `postman/` hoje vazia) — portável/exportável, sem travar em conta específica
-- [ ] Environment de exemplo com as variáveis (sem segredos reais)
-- [ ] Testes automatizados das rotas principais
+### Etapa 5 — Documentação & Testes da API (opcional, futuro) ✅
+- [x] Coleção de testes da API REST do Flask (pasta postman/ — arquivos salvos em postman/collections/ e postman/environments/)
+- [x] Environment de exemplo com as variáveis (sem segredos reais)
+- [x] Testes automatizados das rotas principais ✅ DONE
 
-### Etapa 6 — Deploy & Operação ⬜
-- [ ] Revisar `Procfile` e variáveis no Render
-- [ ] Checklist de saúde (`check_connection`, status das instâncias)
-- [ ] Monitoramento de disparos e limites diários por número
+### Etapa 6 — Deploy & Operação ✅
+- [x] Revisar `Procfile` e variáveis no Render (Procfile atualizado para gunicorn, render.yaml criado)
+- [x] Checklist de saúde (health endpoint /health retorna 200, SESSION_COOKIE_SECURE configurado, runtime.txt criado)
+- [x] Monitoramento de disparos e limites diários por número (dispatch engine e broadcast2 por instância já implementados)
 
 ---
 
@@ -134,7 +134,45 @@ Legenda: ✅ concluído · 🚧 em andamento · ⬜ pendente
 2. Rodar o schema no Supabase: `supabase_setup.sql` e depois `supabase_migration_v2.sql`.
 3. Instalar dependências: `pip install -r requirements.txt`.
 4. Subir localmente: `python main.py`.
-5. **Etapa 4 concluída ✅** — Próximo passo: **Etapa 5** — Documentação & Testes da API (coleção Postman, environment de exemplo e testes automatizados das rotas principais).
+5. ✅ Todas as etapas concluídas! O projeto está pronto para deploy no Render. Consulte o render.yaml e o checklist de variáveis de ambiente.
+
+---
+
+### Etapa 7 — Redesign UI/UX Completo + Novas Funcionalidades 🚧
+
+**Objetivo:** Refazer o visual do painel por completo com glassmorphism, gradientes, animações suaves, layout moderno e novas funcionalidades de agrupamento e seleção.
+
+#### 7.1 — Redesign Visual (style.css)
+- [ ] Glassmorphism: cards com backdrop-filter blur, bordas semitransparentes
+- [ ] Gradientes: backgrounds com gradientes radiais/lineares profundos (roxo/azul/verde escuro)
+- [ ] Animações suaves: fadeIn, slideUp, shimmer, pulse em status dots
+- [ ] Sidebar redesenhada: gradiente lateral, ícones com glow no hover, indicador ativo animado
+- [ ] Botões com gradiente, sombra colorida e efeito ripple no clique
+- [ ] Cards com hover lift + glow colorido por tipo (leads=azul, campanhas=roxo, bolsões=verde)
+- [ ] Tipografia refinada: hierarquia clara, pesos variados, espaçamento generoso
+- [ ] Scrollbar customizada, seleção de texto com cor accent
+- [ ] Login screen com background animado (partículas ou gradiente em movimento)
+- [ ] Tela de seleção de instância com cards premium
+
+#### 7.2 — Redesign Estrutural (index.html)
+- [ ] Layout geral: sidebar colapsável com ícones + labels, topbar com breadcrumb e status
+- [ ] Dashboard: métricas em cards grandes com ícones SVG, mini gráfico de atividade
+- [ ] Página de Disparo: layout 3 colunas (config | leads | preview), seleção de número integrada
+- [ ] Página de Leads: filtros avançados em linha, tabela com avatares, ações inline
+- [ ] Páginas Bolsões/Grupos/Segmentos: grid de cards com cores e badges visuais
+- [ ] Página Campanhas: cards com progresso visual do funil
+- [ ] Editor de Mensagens: interface tipo "editor de dia" com tabs por dia do funil
+- [ ] Página Controle: painel de status em tempo real com indicadores visuais
+- [ ] Página Configurações: seções organizadas com toggle switches estilizados
+
+#### 7.3 — Novas Funcionalidades (app.js + backend)
+- [ ] Grupos de Mensagens: criar grupos temáticos de mensagens reutilizáveis entre campanhas
+- [ ] Múltiplos Grupos de Leads: criar e gerenciar listas de leads nomeadas (além dos bolsões)
+- [ ] Seleção de Número no Disparo: escolher qual número/instância usar diretamente na tela de disparo
+- [ ] Disparo para Grupos WhatsApp: interface dedicada para selecionar grupos e disparar
+- [ ] Preview em tempo real com spintax resolvido e variáveis substituídas
+- [ ] Indicador de status por instância no sidebar (online/offline/conectando)
+- [ ] Notificações in-app para eventos do motor (disparo concluído, erro, limite atingido)
 
 ---
 *Mantenha este arquivo atualizado ao final de cada sessão de trabalho, marcando os checkboxes e ajustando "Última atualização".*

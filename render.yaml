@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: botremarketingimob
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn main:application --workers 1 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: WHATSAPP_API_URL
+        sync: false
+      - key: WHATSAPP_INSTANCE
+        sync: false
+      - key: WHATSAPP_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: WEB_PASSWORD
+        sync: false
+      - key: WEB_SECRET_KEY
+        generateValue: true
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ADMIN_TELEGRAM_ID
+        sync: false
+      - key: DISPATCH_WINDOW_START
+        value: "8"
+      - key: DISPATCH_WINDOW_END
+        value: "20"
+      - key: DAILY_TARGET_MIN
+        value: "15"
+      - key: DAILY_TARGET_MAX
+        value: "40"

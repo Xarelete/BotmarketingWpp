@@ -1,0 +1,807 @@
+{
+  "info": {
+    "name": "BotRemarketingIMOB API",
+    "description": "API REST completa do sistema de remarketing imobiliário via WhatsApp. Autenticação por sessão cookie. Rotas @instance_required exigem login por instância (/api/instance/login) antes de usar.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "🔓 Público",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"]},
+            "description": "Verifica se a API está online e respondendo."
+          }
+        },
+        {
+          "name": "Verificar Sessão Atual",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/session", "host": ["{{base_url}}"], "path": ["api", "session"]},
+            "description": "Retorna o estado da sessão atual. Resposta: {authenticated, instance, is_admin}."
+          }
+        },
+        {
+          "name": "Listar Instâncias Disponíveis",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/instances/available", "host": ["{{base_url}}"], "path": ["api", "instances", "available"]},
+            "description": "Lista todas as instâncias disponíveis para login. Resposta: {instances: [{name, status, phone_formatted, display_name, has_access}]}."
+          }
+        },
+        {
+          "name": "Login por Instância",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"instance\": \"{{instance_name}}\",\n  \"password\": \"{{instance_password}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/instance/login", "host": ["{{base_url}}"], "path": ["api", "instance", "login"]},
+            "description": "Realiza login em uma instância específica pelo número/nome. Resposta: {ok, instance}. Necessário antes de usar rotas @instance_required."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔐 Autenticação",
+      "item": [
+        {
+          "name": "Login Admin Global",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"{{web_password}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api", "auth", "login"]},
+            "description": "Login de administrador global. Resposta: {ok}."
+          }
+        },
+        {
+          "name": "Verificar Autenticação",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/auth/check", "host": ["{{base_url}}"], "path": ["api", "auth", "check"]},
+            "description": "Verifica se o usuário está autenticado. Resposta: {authenticated}."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{}"},
+            "url": {"raw": "{{base_url}}/api/auth/logout", "host": ["{{base_url}}"], "path": ["api", "auth", "logout"]},
+            "description": "Encerra a sessão atual. Resposta: {ok}."
+          }
+        }
+      ]
+    },
+    {
+      "name": "⚙️ Instância / Configurações",
+      "item": [
+        {
+          "name": "Obter Configurações da Instância",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/instance/settings", "host": ["{{base_url}}"], "path": ["api", "instance", "settings"]},
+            "description": "Retorna as configurações da instância logada. Resposta: {instance_name, display_name, daily_limit, warmup_enabled, ...}. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Atualizar Configurações da Instância",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"display_name\": \"Corretor Exemplo\",\n  \"daily_limit\": 40,\n  \"warmup_enabled\": false\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/instance/settings", "host": ["{{base_url}}"], "path": ["api", "instance", "settings"]},
+            "description": "Atualiza as configurações da instância logada. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Alterar Senha da Instância",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"new_password\": \"nova_senha_aqui\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/instance/password", "host": ["{{base_url}}"], "path": ["api", "instance", "password"]},
+            "description": "Altera a senha de acesso da instância logada. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Dashboard",
+      "item": [
+        {
+          "name": "Dashboard Geral",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/dashboard", "host": ["{{base_url}}"], "path": ["api", "dashboard"]},
+            "description": "Retorna dados gerais do dashboard. Resposta: {engine, leads: {total, active, paused, ...}, campaigns_count, recent_dispatches}. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 Leads",
+      "item": [
+        {
+          "name": "Listar Leads",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/leads?status=active&search=&tag=&limit=100&paused=false",
+              "host": ["{{base_url}}"],
+              "path": ["api", "leads"],
+              "query": [
+                {"key": "status", "value": "active"},
+                {"key": "search", "value": ""},
+                {"key": "tag", "value": ""},
+                {"key": "limit", "value": "100"},
+                {"key": "paused", "value": "false"}
+              ]
+            },
+            "description": "Lista leads com filtros opcionais. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Criar Lead",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"5511999999999\",\n  \"name\": \"João Silva\",\n  \"tags\": [\"imovel\", \"sp\"],\n  \"notes\": \"Interessado em apartamento\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/leads", "host": ["{{base_url}}"], "path": ["api", "leads"]},
+            "description": "Cria um novo lead. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Atualizar Lead",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"João Silva\",\n  \"status\": \"active\",\n  \"tags\": [\"imovel\"],\n  \"notes\": \"\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/leads/{{lead_id}}", "host": ["{{base_url}}"], "path": ["api", "leads", "{{lead_id}}"]},
+            "description": "Atualiza dados de um lead existente. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Deletar Lead",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/leads/{{lead_id}}", "host": ["{{base_url}}"], "path": ["api", "leads", "{{lead_id}}"]},
+            "description": "Remove um lead permanentemente. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Pausar Lead",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Solicitou pausa\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/leads/{{lead_id}}/pause", "host": ["{{base_url}}"], "path": ["api", "leads", "{{lead_id}}", "pause"]},
+            "description": "Pausa o envio de mensagens para um lead. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Retomar Lead",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{}"},
+            "url": {"raw": "{{base_url}}/api/leads/{{lead_id}}/resume", "host": ["{{base_url}}"], "path": ["api", "leads", "{{lead_id}}", "resume"]},
+            "description": "Retoma o envio de mensagens para um lead pausado. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Marcar Lead como Convertido",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{}"},
+            "url": {"raw": "{{base_url}}/api/leads/{{lead_id}}/convert", "host": ["{{base_url}}"], "path": ["api", "leads", "{{lead_id}}", "convert"]},
+            "description": "Marca um lead como convertido (venda realizada). Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Resetar Funil do Lead",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{}"},
+            "url": {"raw": "{{base_url}}/api/leads/{{lead_id}}/reset-funnel", "host": ["{{base_url}}"], "path": ["api", "leads", "{{lead_id}}", "reset-funnel"]},
+            "description": "Reseta o funil de mensagens do lead, reiniciando a sequência. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Enviar Mensagem de Teste para Lead",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Olá {primeiro_nome}, tudo bem?\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/leads/{{lead_id}}/test-message", "host": ["{{base_url}}"], "path": ["api", "leads", "{{lead_id}}", "test-message"]},
+            "description": "Envia uma mensagem de teste para o lead. Suporta variáveis como {primeiro_nome}. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Importar Leads (JSON)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"phone\": \"5511999999999\",\n    \"name\": \"Maria\",\n    \"source\": \"csv\",\n    \"tags\": [\"sp\"],\n    \"notes\": \"\"\n  }\n]",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/leads/import", "host": ["{{base_url}}"], "path": ["api", "leads", "import"]},
+            "description": "Importa múltiplos leads via array JSON. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Entrar no Bolsão em Massa",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"campaign_id\": \"{{campaign_id}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/leads/bulk-pool", "host": ["{{base_url}}"], "path": ["api", "leads", "bulk-pool"]},
+            "description": "Adiciona múltiplos leads a um bolsão em massa. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📣 Campanhas",
+      "item": [
+        {
+          "name": "Listar Campanhas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns?status=active",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns"],
+              "query": [{"key": "status", "value": "active"}]
+            },
+            "description": "Lista campanhas com filtro opcional por status. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Criar Campanha",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Campanha Exemplo\",\n  \"target_tags\": [\"imovel\"],\n  \"funnel_days\": [1, 2, 3, 5, 7, 14, 30],\n  \"custom_data\": {\n    \"empreendimento\": \"Residencial X\",\n    \"link\": \"https://exemplo.com\",\n    \"preco\": \"R$ 350.000\"\n  }\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/campaigns", "host": ["{{base_url}}"], "path": ["api", "campaigns"]},
+            "description": "Cria uma nova campanha de remarketing com funil de dias. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Atualizar Campanha",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Campanha Atualizada\",\n  \"target_tags\": [\"imovel\", \"sp\"]\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/campaigns/{{campaign_id}}", "host": ["{{base_url}}"], "path": ["api", "campaigns", "{{campaign_id}}"]},
+            "description": "Atualiza dados de uma campanha existente. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Deletar Campanha",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/campaigns/{{campaign_id}}", "host": ["{{base_url}}"], "path": ["api", "campaigns", "{{campaign_id}}"]},
+            "description": "Remove uma campanha permanentemente. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Pausar Campanha",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{}"},
+            "url": {"raw": "{{base_url}}/api/campaigns/{{campaign_id}}/pause", "host": ["{{base_url}}"], "path": ["api", "campaigns", "{{campaign_id}}", "pause"]},
+            "description": "Pausa uma campanha ativa. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Retomar Campanha",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{}"},
+            "url": {"raw": "{{base_url}}/api/campaigns/{{campaign_id}}/resume", "host": ["{{base_url}}"], "path": ["api", "campaigns", "{{campaign_id}}", "resume"]},
+            "description": "Retoma uma campanha pausada. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Listar Mensagens do Funil",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/campaigns/{{campaign_id}}/messages", "host": ["{{base_url}}"], "path": ["api", "campaigns", "{{campaign_id}}", "messages"]},
+            "description": "Lista todas as mensagens do funil de uma campanha. Resposta: {messages, funnel_days}. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Salvar Mensagem do Dia",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message_text\": \"Olá {primeiro_nome}! Temos uma novidade sobre {empreendimento}...\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/campaigns/{{campaign_id}}/messages/{{day}}", "host": ["{{base_url}}"], "path": ["api", "campaigns", "{{campaign_id}}", "messages", "{{day}}"]},
+            "description": "Salva ou atualiza a mensagem de um dia específico do funil. Use a variável {{day}} para indicar o dia. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Deletar Mensagem do Dia",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/campaigns/{{campaign_id}}/messages/{{day}}", "host": ["{{base_url}}"], "path": ["api", "campaigns", "{{campaign_id}}", "messages", "{{day}}"]},
+            "description": "Remove a mensagem de um dia específico do funil. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Disparar para Um Lead Manualmente",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{}"},
+            "url": {"raw": "{{base_url}}/api/campaigns/{{campaign_id}}/dispatch-one", "host": ["{{base_url}}"], "path": ["api", "campaigns", "{{campaign_id}}", "dispatch-one"]},
+            "description": "Dispara manualmente a mensagem da campanha para um lead. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        }
+      ]
+    },
+    {
+      "name": "⚙️ Motor de Disparo",
+      "item": [
+        {
+          "name": "Status do Motor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/engine/status", "host": ["{{base_url}}"], "path": ["api", "engine", "status"]},
+            "description": "Retorna o status atual do motor de disparo automático. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Pausar Motor",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{}"},
+            "url": {"raw": "{{base_url}}/api/engine/pause", "host": ["{{base_url}}"], "path": ["api", "engine", "pause"]},
+            "description": "Pausa o motor de disparo automático. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Retomar Motor",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{}"},
+            "url": {"raw": "{{base_url}}/api/engine/resume", "host": ["{{base_url}}"], "path": ["api", "engine", "resume"]},
+            "description": "Retoma o motor de disparo automático. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📋 Log de Disparos",
+      "item": [
+        {
+          "name": "Listar Log de Disparos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/dispatch/log?limit=50&campaign_id=",
+              "host": ["{{base_url}}"],
+              "path": ["api", "dispatch", "log"],
+              "query": [
+                {"key": "limit", "value": "50"},
+                {"key": "campaign_id", "value": ""}
+              ]
+            },
+            "description": "Lista o log de disparos realizados. Filtros: limit, campaign_id. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📡 WhatsApp",
+      "item": [
+        {
+          "name": "Status da Conexão WhatsApp",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/whatsapp/status?instance=",
+              "host": ["{{base_url}}"],
+              "path": ["api", "whatsapp", "status"],
+              "query": [{"key": "instance", "value": ""}]
+            },
+            "description": "Retorna o status da conexão WhatsApp para a instância especificada."
+          }
+        },
+        {
+          "name": "Listar Instâncias WhatsApp",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/whatsapp/instances", "host": ["{{base_url}}"], "path": ["api", "whatsapp", "instances"]},
+            "description": "Lista todas as instâncias WhatsApp configuradas no sistema."
+          }
+        },
+        {
+          "name": "Selecionar Instância Ativa",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"instance\": \"{{instance_name}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/whatsapp/select-instance", "host": ["{{base_url}}"], "path": ["api", "whatsapp", "select-instance"]},
+            "description": "Define a instância WhatsApp ativa para operações subsequentes."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏊 Bolsões (Pools)",
+      "item": [
+        {
+          "name": "Listar Bolsões",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/pools", "host": ["{{base_url}}"], "path": ["api", "pools"]},
+            "description": "Lista todos os bolsões de leads disponíveis. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Criar Bolsão",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bolsão SP\",\n  \"description\": \"Leads de São Paulo\",\n  \"color\": \"#25D366\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/pools", "host": ["{{base_url}}"], "path": ["api", "pools"]},
+            "description": "Cria um novo bolsão de leads. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Atualizar Bolsão",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bolsão SP Atualizado\",\n  \"color\": \"#128C7E\",\n  \"status\": \"active\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/pools/{{pool_id}}", "host": ["{{base_url}}"], "path": ["api", "pools", "{{pool_id}}"]},
+            "description": "Atualiza dados de um bolsão existente. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Deletar Bolsão",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/pools/{{pool_id}}", "host": ["{{base_url}}"], "path": ["api", "pools", "{{pool_id}}"]},
+            "description": "Remove um bolsão permanentemente. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Estatísticas do Bolsão",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/pools/{{pool_id}}/stats", "host": ["{{base_url}}"], "path": ["api", "pools", "{{pool_id}}", "stats"]},
+            "description": "Retorna estatísticas detalhadas de um bolsão. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Grupos (Jornal da Construtora)",
+      "item": [
+        {
+          "name": "Sincronizar Grupos do WhatsApp",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{}"},
+            "url": {"raw": "{{base_url}}/api/groups/sync", "host": ["{{base_url}}"], "path": ["api", "groups", "sync"]},
+            "description": "Sincroniza os grupos do WhatsApp com o sistema. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Listar Grupos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/groups?journal=false",
+              "host": ["{{base_url}}"],
+              "path": ["api", "groups"],
+              "query": [{"key": "journal", "value": "false"}]
+            },
+            "description": "Lista grupos do WhatsApp. Filtro journal=true retorna apenas grupos marcados como Jornal da Construtora. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Marcar/Desmarcar Grupo como Jornal",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_journal\": true\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/groups/{{group_id}}/journal", "host": ["{{base_url}}"], "path": ["api", "groups", "{{group_id}}", "journal"]},
+            "description": "Marca ou desmarca um grupo como Jornal da Construtora. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Associar Grupo a Bolsão",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pool_id\": \"{{pool_id}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/groups/{{group_id}}/pool", "host": ["{{base_url}}"], "path": ["api", "groups", "{{group_id}}", "pool"]},
+            "description": "Associa um grupo WhatsApp a um bolsão de leads. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Remover Grupo",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/groups/{{group_id}}", "host": ["{{base_url}}"], "path": ["api", "groups", "{{group_id}}"]},
+            "description": "Remove um grupo do sistema. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎯 Segmentos",
+      "item": [
+        {
+          "name": "Listar Segmentos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/segments", "host": ["{{base_url}}"], "path": ["api", "segments"]},
+            "description": "Lista todos os segmentos de leads disponíveis. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Criar Segmento",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Leads Quentes SP\",\n  \"description\": \"Leads com alta interação em SP\",\n  \"pool_id\": \"{{pool_id}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/segments", "host": ["{{base_url}}"], "path": ["api", "segments"]},
+            "description": "Cria um novo segmento de leads. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Deletar Segmento",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/segments/{{segment_id}}", "host": ["{{base_url}}"], "path": ["api", "segments", "{{segment_id}}"]},
+            "description": "Remove um segmento permanentemente. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Listar Membros do Segmento",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/segments/{{segment_id}}/members", "host": ["{{base_url}}"], "path": ["api", "segments", "{{segment_id}}", "members"]},
+            "description": "Lista todos os leads membros de um segmento. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Adicionar Membros ao Segmento",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lead_ids\": [\"{{lead_id}}\"]\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/segments/{{segment_id}}/members", "host": ["{{base_url}}"], "path": ["api", "segments", "{{segment_id}}", "members"]},
+            "description": "Adiciona leads a um segmento. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Remover Membro do Segmento",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/segments/{{segment_id}}/members/{{lead_id}}", "host": ["{{base_url}}"], "path": ["api", "segments", "{{segment_id}}", "members", "{{lead_id}}"]},
+            "description": "Remove um lead específico de um segmento. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📢 Broadcast v2 (Paralelo por Número)",
+      "item": [
+        {
+          "name": "Iniciar Disparo (Leads)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"leads\",\n  \"message_template\": \"Olá {primeiro_nome}! Temos uma novidade sobre {empreendimento}. Acesse: {link}\",\n  \"lead_ids\": [\"{{lead_id}}\"],\n  \"min_delay\": 15,\n  \"max_delay\": 40,\n  \"vary_text\": true,\n  \"vary_synonyms\": true\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/broadcast2/start", "host": ["{{base_url}}"], "path": ["api", "broadcast2", "start"]},
+            "description": "Inicia um disparo em paralelo para leads. Suporta variáveis de template como {primeiro_nome}, {empreendimento}, {link}. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Iniciar Disparo (Grupos)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"groups\",\n  \"message_template\": \"📢 Novidade do {empreendimento}! Acesse: {link}\",\n  \"group_jids\": [\"{{group_jid}}\"],\n  \"min_delay\": 20,\n  \"max_delay\": 50\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/broadcast2/start", "host": ["{{base_url}}"], "path": ["api", "broadcast2", "start"]},
+            "description": "Inicia um disparo em paralelo para grupos WhatsApp. Use group_jids para especificar os grupos. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Status do Disparo Atual",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/broadcast2/status", "host": ["{{base_url}}"], "path": ["api", "broadcast2", "status"]},
+            "description": "Retorna o status do disparo broadcast v2 em andamento. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Status de Todos os Disparos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/broadcast2/status-all", "host": ["{{base_url}}"], "path": ["api", "broadcast2", "status-all"]},
+            "description": "Retorna o status de todos os disparos broadcast v2. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Cancelar Disparo",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{}"},
+            "url": {"raw": "{{base_url}}/api/broadcast2/cancel", "host": ["{{base_url}}"], "path": ["api", "broadcast2", "cancel"]},
+            "description": "Cancela o disparo broadcast v2 em andamento. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📢 Broadcast v1 (Legado)",
+      "item": [
+        {
+          "name": "Preview de Mensagem",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message_template\": \"Olá {primeiro_nome}! Temos {empreendimento} disponível.\",\n  \"vary_synonyms\": true,\n  \"vary_text\": true\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/api/broadcast/preview", "host": ["{{base_url}}"], "path": ["api", "broadcast", "preview"]},
+            "description": "Gera um preview da mensagem com variações de texto e sinônimos aplicados. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Status do Disparo Legado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/broadcast/status", "host": ["{{base_url}}"], "path": ["api", "broadcast", "status"]},
+            "description": "Retorna o status do disparo broadcast v1 (legado) em andamento. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        },
+        {
+          "name": "Cancelar Disparo Legado",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{}"},
+            "url": {"raw": "{{base_url}}/api/broadcast/cancel", "host": ["{{base_url}}"], "path": ["api", "broadcast", "cancel"]},
+            "description": "Cancela o disparo broadcast v1 (legado) em andamento. Requer @instance_required — faça login via /api/instance/login primeiro."
+          }
+        }
+      ]
+    }
+  ]
+}

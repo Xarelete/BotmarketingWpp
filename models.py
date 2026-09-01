@@ -28,26 +28,6 @@ class Lead:
     entered_pool_at: str = ""       # Quando entrou no bolsão
     completed_at: str = ""          # Quando completou o funil
 
-    @classmethod
-    def from_row(cls, row) -> "Lead":
-        """Cria Lead a partir de sqlite3.Row."""
-        return cls(
-            id=row["id"],
-            name=row["name"] or "",
-            phone=row["phone"],
-            source=row["source"] or "manual",
-            tags=json.loads(row["tags"] or "[]"),
-            added_at=row["added_at"] or "",
-            added_by=row["added_by"] or "admin",
-            status=row["status"] or "active",
-            notes=row["notes"] or "",
-            paused=bool(row["paused"]),
-            remarketing_day=row["remarketing_day"] or 0,
-            next_send_date=row["next_send_date"] or "",
-            entered_pool_at=row["entered_pool_at"] or "",
-            completed_at=row["completed_at"] or "",
-        )
-
     def to_dict(self) -> Dict[str, Any]:
         """Converte para dicionário (compatível com API/JSON)."""
         return asdict(self)
@@ -72,28 +52,6 @@ class Campaign:
     last_dispatch: str = ""
     daily_sent_today: int = 0
     stats_current_date: str = ""
-
-    @classmethod
-    def from_row(cls, row) -> "Campaign":
-        """Cria Campaign a partir de sqlite3.Row."""
-        return cls(
-            id=row["id"],
-            name=row["name"],
-            status=row["status"] or "active",
-            type=row["type"] or "remarketing",
-            target_tags=json.loads(row["target_tags"] or "[]"),
-            message_template_key=row["message_template_key"] or "reativacao_geral",
-            custom_data=json.loads(row["custom_data"] or "{}"),
-            schedule=json.loads(row["schedule"] or "{}"),
-            days_config=json.loads(row["days_config"] or "{}"),
-            created_at=row["created_at"] or "",
-            total_sent=row["total_sent"] or 0,
-            total_failed=row["total_failed"] or 0,
-            total_leads_reached=row["total_leads_reached"] or 0,
-            last_dispatch=row["last_dispatch"] or "",
-            daily_sent_today=row["daily_sent_today"] or 0,
-            stats_current_date=row["stats_current_date"] or "",
-        )
 
     def to_dict(self) -> Dict[str, Any]:
         """Converte para dicionário (compatível com API/JSON)."""
@@ -121,18 +79,6 @@ class DayMessage:
     created_at: str = ""
     updated_at: str = ""
 
-    @classmethod
-    def from_row(cls, row) -> "DayMessage":
-        return cls(
-            id=row["id"],
-            campaign_id=row["campaign_id"],
-            day=row["day"],
-            message_text=row["message_text"],
-            is_custom=bool(row["is_custom"]),
-            created_at=row["created_at"] or "",
-            updated_at=row["updated_at"] or "",
-        )
-
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
@@ -150,21 +96,6 @@ class DispatchLogEntry:
     status: str = "sent"            # sent, failed, skipped
     sent_at: str = ""
     error_message: str = ""
-
-    @classmethod
-    def from_row(cls, row) -> "DispatchLogEntry":
-        return cls(
-            id=row["id"],
-            campaign_id=row["campaign_id"],
-            lead_id=row["lead_id"],
-            lead_phone=row["lead_phone"],
-            lead_name=row["lead_name"] or "",
-            remarketing_day=row["remarketing_day"] or 0,
-            message_hash=row["message_hash"] or "",
-            status=row["status"] or "sent",
-            sent_at=row["sent_at"] or "",
-            error_message=row["error_message"] or "",
-        )
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

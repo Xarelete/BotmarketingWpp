@@ -730,3 +730,38 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ─── WSGI entry point for gunicorn ───────────────────────────────────────────
+# Gunicorn imports this module and calls `application(environ, start_response)`.
+# We start the background threads (dispatch engine + optional Telegram bot)
+# once, guarded by a flag so multiple gunicorn workers don't double-start them.
+import threading as _threading
+_background_started = False
+_background_lock = _threading.Lock()
+
+def _start_background_once():
+    global _background_started
+    with _background_lock:
+        if _background_started:
+            return
+        _background_started = True
+    from database import check_connection as _check_connection
+    if not validate_config():
+        return
+    if not _check_connection():
+        return
+    # Dispatch engine
+    import asyncio as _asyncio
+    def _run_engine():
+        _asyncio.run(run_dispatch_engine())
+    t = _threading.Thread(target=_run_engine, daemon=True, name="dispatch-engine")
+    t.start()
+    # Telegram bot (optional) — not started here because python-telegram-bot's
+    # run_polling() blocks and requires its own event loop; the bot is optional
+    # and is best run via `python main.py` directly when needed.
+
+_start_background_once()
+
+from web.app import create_app as _create_app
+application = _create_app()

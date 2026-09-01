@@ -112,12 +112,23 @@ async function api(url, options = {}) {
 // ═══════════════════════════════════════════
 
 function toast(message, type = 'info') {
+    const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
     const container = document.getElementById('toast-container');
-    const el = document.createElement('div');
-    el.className = `toast ${type}`;
-    el.textContent = message;
-    container.appendChild(el);
-    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3500);
+    if (!container) return;
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.innerHTML = `
+        <span class="toast-icon">${icons[type] || 'ℹ️'}</span>
+        <div class="toast-body">
+            <div class="toast-title">${type === 'success' ? 'Sucesso' : type === 'error' ? 'Erro' : type === 'warning' ? 'Atenção' : 'Info'}</div>
+            <div class="toast-msg">${message}</div>
+        </div>
+    `;
+    container.appendChild(t);
+    setTimeout(() => {
+        t.classList.add('fade-out');
+        setTimeout(() => t.remove(), 350);
+    }, 3500);
 }
 
 function openModal(title, bodyHTML) {
@@ -152,12 +163,11 @@ async function checkAuth() {
 
 function setActiveInstanceBadge(instanceName) {
     const badge = document.getElementById('active-instance-badge');
-    if (!badge) return;
-    if (instanceName) {
-        badge.textContent = `📱 ${instanceName}`;
-    } else {
-        badge.textContent = '👤 Admin';
+    if (badge) {
+        badge.textContent = instanceName ? `📱 ${instanceName}` : '👤 Admin';
     }
+    // Sync topbar
+    syncTopbarInstance(instanceName);
 }
 
 function showLogin() {
@@ -177,6 +187,8 @@ function showApp() {
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('instance-screen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
+    initSidebar();
+    updateBreadcrumb('dashboard');
     loadDashboard();
     checkActiveBroadcast();
     checkWhatsAppStatus();
@@ -282,6 +294,7 @@ async function checkWhatsAppStatus() {
         const dot = document.getElementById('wpp-status-dot');
         const label = document.getElementById('wpp-status-label');
         const pill = document.getElementById('wpp-connection-pill');
+        const wppLabel = data.message && data.message.includes('Render') ? 'Render Offline (503)' : (data.connected ? 'WhatsApp Conectado' : 'WhatsApp Desconectado');
         if (data.connected) {
             if (dot) dot.style.background = 'var(--success)';
             if (label) label.textContent = 'WhatsApp Conectado';
@@ -291,14 +304,14 @@ async function checkWhatsAppStatus() {
             }
         } else {
             if (dot) dot.style.background = 'var(--danger)';
-            if (label) {
-                label.textContent = data.message && data.message.includes('Render') ? 'Render Offline (503)' : 'WhatsApp Desconectado';
-            }
+            if (label) label.textContent = wppLabel;
             if (pill) {
                 pill.style.borderColor = 'rgba(239, 68, 68, 0.4)';
                 pill.title = data.message || 'Instância desconectada ou serviço offline';
             }
         }
+        // Sync topbar
+        syncTopbarWpp(data.connected, data.connected ? 'Conectado' : 'Desconectado');
     } catch { }
 
     if (!wppStatusInterval) {
@@ -326,6 +339,99 @@ async function handleLogout() {
 }
 
 // ═══════════════════════════════════════════
+// SIDEBAR TOGGLE & PERSISTENCE
+// ═══════════════════════════════════════════
+
+const SIDEBAR_KEY = 'imob_sidebar_collapsed';
+
+function isMobile() {
+    return window.innerWidth <= 768;
+}
+
+function initSidebar() {
+    const app = document.getElementById('app');
+    if (!app) return;
+    if (isMobile()) return; // mobile: always starts closed
+    const saved = localStorage.getItem(SIDEBAR_KEY);
+    if (saved === 'true') {
+        app.classList.add('sidebar-collapsed');
+    }
+}
+
+function toggleSidebar() {
+    const app = document.getElementById('app');
+    if (!app) return;
+    if (isMobile()) {
+        // Mobile: toggle overlay mode
+        app.classList.toggle('sidebar-mobile-open');
+    } else {
+        // Desktop: toggle collapsed
+        const isCollapsed = app.classList.toggle('sidebar-collapsed');
+        localStorage.setItem(SIDEBAR_KEY, isCollapsed ? 'true' : 'false');
+    }
+}
+
+function closeSidebarMobile() {
+    const app = document.getElementById('app');
+    if (app) app.classList.remove('sidebar-mobile-open');
+}
+
+// Close mobile sidebar on resize to desktop
+window.addEventListener('resize', () => {
+    if (!isMobile()) {
+        const app = document.getElementById('app');
+        if (app) app.classList.remove('sidebar-mobile-open');
+    }
+});
+
+// ═══════════════════════════════════════════
+// BREADCRUMB
+// ═══════════════════════════════════════════
+
+const PAGE_LABELS = {
+    dashboard: 'Dashboard',
+    broadcast: 'Disparo Rápido',
+    leads: 'Leads',
+    pools: 'Bolsões',
+    groups: 'Grupos WA',
+    segments: 'Segmentos',
+    campaigns: 'Campanhas',
+    messages: 'Editor D1–D30',
+    control: 'Central de Controle',
+    log: 'Histórico de Envios',
+    settings: 'Configurações',
+};
+
+function updateBreadcrumb(page) {
+    const el = document.getElementById('breadcrumb-current');
+    if (el) el.textContent = PAGE_LABELS[page] || page;
+}
+
+// ═══════════════════════════════════════════
+// TOPBAR SYNC (instance + wpp status)
+// ═══════════════════════════════════════════
+
+function syncTopbarInstance(name) {
+    const el = document.getElementById('topbar-instance-badge');
+    if (!el) return;
+    el.textContent = name ? `📱 ${name}` : '👤 Admin';
+}
+
+function syncTopbarWpp(connected, label) {
+    const dot = document.getElementById('topbar-wpp-dot');
+    const lbl = document.getElementById('topbar-wpp-label');
+    if (dot) {
+        dot.style.background = connected ? 'var(--success)' : 'var(--danger)';
+        if (connected) {
+            dot.classList.add('connected');
+        } else {
+            dot.classList.remove('connected');
+        }
+    }
+    if (lbl) lbl.textContent = label || (connected ? 'Conectado' : 'Desconectado');
+}
+
+// ═══════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════
 
@@ -337,6 +443,12 @@ document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.add('active');
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.getElementById(`page-${page}`).classList.add('active');
+
+        // Update breadcrumb
+        updateBreadcrumb(page);
+
+        // Close mobile sidebar on nav
+        if (isMobile()) closeSidebarMobile();
 
         const loaders = {
             dashboard: loadDashboard,
@@ -367,46 +479,45 @@ async function loadDashboard() {
 
         document.getElementById('stats-grid').innerHTML = `
             <div class="stat-card">
-                <div class="stat-icon">👥</div>
+                <span class="stat-icon">👥</span>
                 <div class="stat-value">${leads.active || 0}</div>
                 <div class="stat-label">Leads no Bolsão</div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">🔄</div>
+                <span class="stat-icon">🔄</span>
                 <div class="stat-value">${leads.in_funnel || 0}</div>
                 <div class="stat-label">Em Remarketing Ativo</div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">⏸️</div>
+                <span class="stat-icon">⏸️</span>
                 <div class="stat-value">${leads.paused || 0}</div>
                 <div class="stat-label">Envios Pausados</div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">🚀</div>
+                <span class="stat-icon">🚀</span>
                 <div class="stat-value">${engine.active_campaigns || 0}</div>
                 <div class="stat-label">Campanhas Ativas</div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">✅</div>
+                <span class="stat-icon">✅</span>
                 <div class="stat-value">${leads.completed || 0}</div>
                 <div class="stat-label">Completaram Funil</div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">🏆</div>
+                <span class="stat-icon">🏆</span>
                 <div class="stat-value">${leads.converted || 0}</div>
                 <div class="stat-label">Leads Convertidos</div>
             </div>
         `;
 
         const paused = engine.engine_paused;
+        const statusClass = paused ? 'paused' : 'running';
+        const statusText = paused ? '⏸️ Motor PAUSADO' : '▶️ Motor ATIVO';
         document.getElementById('engine-status-panel').innerHTML = `
-            <div class="engine-toggle" style="background:var(--bg-input);padding:1rem;border-radius:var(--radius-sm);display:flex;align-items:center;gap:1rem;margin-bottom:1rem">
-                <div class="status-pulse-dot" style="background:${paused ? 'var(--warning)' : 'var(--success)'};box-shadow:0 0 10px ${paused ? 'var(--warning)' : 'var(--success)'}"></div>
-                <div style="flex:1">
-                    <strong style="font-size:0.95rem">${paused ? '⏸️ Motor Geral PAUSADO' : '✅ Motor de Disparos ATIVO'}</strong>
-                    <div class="text-muted text-sm">Data de operação: ${engine.current_date || 'Hoje'}</div>
-                </div>
+            <div class="engine-status-indicator ${statusClass}">
+                <span class="dot"></span>${statusText}
             </div>
+            <div class="text-sm text-muted" style="margin-bottom:0.5rem">Data de operação: ${engine.current_date || 'Hoje'}</div>
             ${(engine.campaigns || []).map(c => `
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--border);font-size:0.85rem">
                     <span>📌 <strong>${c.name}</strong></span>
@@ -419,20 +530,18 @@ async function loadDashboard() {
         if (log.length === 0) {
             document.getElementById('recent-dispatches').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">📭 Nenhum envio registrado ainda</div>';
         } else {
-            document.getElementById('recent-dispatches').innerHTML = `
-                <div class="table-responsive"><table>
-                    <tr><th>Hora</th><th>Lead</th><th>Campanha</th><th>Dia</th><th>Status</th></tr>
-                    ${log.map(l => `
-                        <tr>
-                            <td>${formatTime(l.sent_at)}</td>
-                            <td><strong>${l.lead_name || l.lead_phone}</strong></td>
-                            <td><span class="tag">${l.campaign_id}</span></td>
-                            <td>D${l.remarketing_day || 0}</td>
-                            <td><span class="badge badge-${l.status}">${l.status}</span></td>
-                        </tr>
-                    `).join('')}
-                </table></div>
-            `;
+            document.getElementById('recent-dispatches').innerHTML = log.map(l => {
+                const dotClass = l.status === 'sent' ? 'sent' : l.status === 'failed' ? 'failed' : 'pending';
+                return `
+                <div class="activity-item">
+                    <span class="activity-dot ${dotClass}"></span>
+                    <div class="activity-info">
+                        <div class="activity-name">${l.lead_name || l.lead_phone}</div>
+                        <div class="activity-meta">${l.campaign_id} · D${l.remarketing_day || 0}</div>
+                    </div>
+                    <span class="activity-time">${formatTime(l.sent_at)}</span>
+                </div>
+            `}).join('');
         }
     } catch (err) { console.error(err); }
 }
@@ -1205,27 +1314,37 @@ async function loadCampaigns() {
         document.getElementById('campaigns-list').innerHTML = campaigns.map(c => {
             const stats = c.stats || {};
             const isActive = c.status === 'active';
-            const funnelDays = (c.funnel_days || [1,2,3,5,7,14,30]).join(', ');
+            const funnelDays = c.funnel_days || [1,2,3,5,7,14,30];
+            const statusBadge = `<span class="badge badge-${c.status}">${c.status}</span>`;
+            const actionButtons = `
+                <button class="btn btn-primary btn-xs" title="Disparar para 1 lead elegível agora" onclick="forceDispatchCampaign('${c.id}', '${c.name}')">⚡ Forçar</button>
+                ${isActive
+                    ? `<button class="btn btn-secondary btn-xs" onclick="pauseCampaign('${c.id}')">⏸️ Pausar</button>`
+                    : `<button class="btn btn-success btn-xs" onclick="resumeCampaign('${c.id}')">▶️ Retomar</button>`
+                }
+                <button class="btn btn-secondary btn-xs" onclick="editCampaignModal('${c.id}')">✏️ Editar</button>
+                <button class="btn btn-secondary btn-xs" onclick="bulkEnterPool('${c.id}')">📥 Bolsão</button>
+                <button class="btn btn-danger btn-xs" onclick="deleteCampaign('${c.id}')">🗑️</button>
+            `;
+            const funnelDivs = funnelDays.map(() => `<div class="funnel-day active"></div>`).join('');
             return `
-                <div class="card mb-3">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
-                        <h3 style="margin:0">${isActive ? '✅' : '⏸️'} ${c.name}</h3>
-                        <span class="badge badge-${c.status}">${c.status}</span>
+                <div class="campaign-card">
+                    <div class="campaign-header">
+                        <div>
+                            <div class="campaign-name">${c.name}</div>
+                            <div class="campaign-meta">
+                                <span>Leads: <strong>${stats.total_leads || 0}</strong></span>
+                                <span>Enviados: <strong>${stats.total_sent || 0}</strong></span>
+                                <span>Hoje: <strong>${stats.sent_today || 0}</strong></span>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
+                            ${statusBadge}
+                            ${actionButtons}
+                        </div>
                     </div>
-                    <div style="display:flex;gap:1.25rem;font-size:0.82rem;color:var(--text-secondary);flex-wrap:wrap;margin-bottom:0.75rem">
-                        <span>🏷️ Tags: ${(c.target_tags || []).join(', ') || 'todos os leads'}</span>
-                        <span>📊 Enviadas: <strong>${stats.total_sent || 0}</strong></span>
-                        <span>📅 Dias do Funil: D${funnelDays}</span>
-                    </div>
-                    <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
-                        <button class="btn btn-primary btn-xs" title="Disparar para 1 lead elegível agora" onclick="forceDispatchCampaign('${c.id}', '${c.name}')">⚡ Forçar 1 Disparo</button>
-                        ${isActive
-                            ? `<button class="btn btn-secondary btn-xs" onclick="pauseCampaign('${c.id}')">⏸️ Pausar</button>`
-                            : `<button class="btn btn-success btn-xs" onclick="resumeCampaign('${c.id}')">▶️ Retomar</button>`
-                        }
-                        <button class="btn btn-secondary btn-xs" onclick="editCampaignModal('${c.id}')">✏️ Editar</button>
-                        <button class="btn btn-secondary btn-xs" onclick="bulkEnterPool('${c.id}')">📥 Jogar Leads no Bolsão</button>
-                        <button class="btn btn-danger btn-xs" onclick="deleteCampaign('${c.id}')">🗑️ Remover</button>
+                    <div class="funnel-progress">
+                        ${funnelDivs}
                     </div>
                 </div>
             `;
@@ -1445,17 +1564,17 @@ async function loadCampaignMessages() {
         document.getElementById('messages-editor').innerHTML = funnelDays.map(day => {
             const existing = msgMap[day] || '';
             return `
-                <div class="card mb-3">
-                    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.75rem">
-                        <span style="background:var(--accent);color:#000;width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:bold;font-size:0.82rem">${day}</span>
-                        <strong style="color:var(--accent);font-size:0.95rem">Dia ${day} do Remarketing</strong>
+                <div class="day-message-card">
+                    <div class="day-message-header">
+                        <span class="day-badge">📅 Dia ${day}</span>
+                        <div style="display:flex;gap:0.4rem">
+                            <button class="btn btn-ghost btn-xs" onclick="saveDayMessage('${campId}', ${day})">💾 Salvar</button>
+                            <button class="btn btn-danger btn-xs" onclick="deleteDayMessage('${campId}', ${day})">🗑️</button>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <textarea id="msg-day-${day}" rows="4" placeholder="Mensagem para o dia ${day}... Use {nome}, {empreendimento}, {preco}, {link} como variáveis.">${existing}</textarea>
-                    </div>
-                    <div style="display:flex;gap:0.5rem">
-                        <button class="btn btn-primary btn-sm" onclick="saveDayMessage('${campId}', ${day})">💾 Salvar Mensagem</button>
-                        ${existing ? `<button class="btn btn-danger btn-sm" onclick="deleteDayMessage('${campId}', ${day})">🗑️ Usar Automática</button>` : ''}
+                    <div class="day-message-body">
+                        <textarea id="msg-day-${day}" rows="4" placeholder="Mensagem para o Dia ${day}...">${existing}</textarea>
+                        <p class="text-muted text-xs" style="margin-top:0.4rem">Use {primeiro_nome}, {empreendimento}, {link}, {preco}</p>
                     </div>
                 </div>
             `;
@@ -1492,18 +1611,17 @@ async function loadControlPage() {
         const status = await api('/api/engine/status');
         const paused = status.engine_paused;
 
+        const statusClass = paused ? 'paused' : 'running';
+        const statusText = paused ? '⏸️ Motor PAUSADO' : '▶️ Motor ATIVO';
+        const btnHtml = paused
+            ? `<button class="btn btn-success btn-sm mt-3" onclick="engineResume()">▶️ Retomar Motor</button>`
+            : `<button class="btn btn-danger btn-sm mt-3" onclick="enginePause()">⏸️ Pausar Motor</button>`;
         document.getElementById('engine-control').innerHTML = `
-            <div class="engine-toggle" style="background:var(--bg-input);padding:1.25rem;border-radius:var(--radius-sm);display:flex;align-items:center;gap:1rem;margin-bottom:1rem">
-                <div class="status-pulse-dot" style="background:${paused ? 'var(--warning)' : 'var(--success)'};box-shadow:0 0 10px ${paused ? 'var(--warning)' : 'var(--success)'}"></div>
-                <div style="flex:1">
-                    <strong style="font-size:1rem">${paused ? '⏸️ Motor Geral PAUSADO' : '✅ Motor Geral ATIVO'}</strong>
-                    <div class="text-muted text-sm">${status.active_campaigns || 0} campanhas ativas</div>
-                </div>
-                ${paused
-                    ? `<button class="btn btn-success btn-sm" onclick="engineResume()">▶️ Retomar Motor</button>`
-                    : `<button class="btn btn-danger btn-sm" onclick="enginePause()">⏸️ Pausar Motor</button>`
-                }
+            <div class="engine-status-indicator ${statusClass}" style="margin-bottom:1rem">
+                <span class="dot"></span>${statusText}
             </div>
+            <div class="text-sm text-muted">Disparos hoje: <strong>${status.daily_sent || 0}</strong></div>
+            ${btnHtml}
         `;
 
         const leadsData = await api('/api/leads?paused=true&limit=50');
@@ -1622,25 +1740,23 @@ async function loadPools() {
         container.innerHTML = poolsCache.map(pool => {
             const color = pool.color || 'var(--accent)';
             const statsObj = pool.stats || {};
-            const statsLine = Object.keys(statsObj).map(k => {
-                const v = statsObj[k];
-                if (typeof v === 'number' || typeof v === 'string') {
-                    return `<span class="pool-stat"><strong>${k}:</strong> ${v}</span>`;
-                }
-                return '';
-            }).join('');
+            const totalLeads = statsObj.total ?? statsObj.leads ?? 0;
+            const activeLeads = statsObj.active ?? statsObj.ativos ?? 0;
+            const convertedLeads = statsObj.converted ?? statsObj.convertidos ?? 0;
             return `
-                <div class="card pool-card" style="border-left-color:${color}">
-                    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem">
-                        <span class="pool-dot" style="background:${color}"></span>
-                        <strong style="font-size:1rem">${pool.name || 'Sem nome'}</strong>
-                        ${pool.status ? `<span class="tag">${pool.status}</span>` : ''}
+                <div class="pool-card">
+                    <div class="card-header">
+                        <h3><span class="pool-dot" style="background:${color}"></span> ${pool.name || 'Sem nome'}</h3>
+                        <div style="display:flex;gap:0.4rem">
+                            <button class="btn btn-ghost btn-xs" onclick="editPoolModal('${pool.id}')">✏️</button>
+                            <button class="btn btn-danger btn-xs" onclick="deletePool('${pool.id}','${(pool.name || '').replace(/'/g, "\\'")}')">🗑️</button>
+                        </div>
                     </div>
-                    ${pool.description ? `<div class="text-muted text-sm" style="margin-bottom:0.5rem">${pool.description}</div>` : ''}
-                    ${statsLine ? `<div class="pool-stats">${statsLine}</div>` : ''}
-                    <div style="display:flex;gap:0.5rem;margin-top:0.75rem">
-                        <button class="btn btn-secondary btn-sm" onclick="editPoolModal('${pool.id}')">✏️ Editar</button>
-                        <button class="btn btn-danger btn-sm" onclick="deletePool('${pool.id}', '${(pool.name || '').replace(/'/g, "\\'")}')">🗑️ Excluir</button>
+                    <p class="text-muted text-sm">${pool.description || ''}</p>
+                    <div class="pool-stats">
+                        <div class="pool-stat"><span class="value">${totalLeads}</span><span class="label">Leads</span></div>
+                        <div class="pool-stat"><span class="value">${activeLeads}</span><span class="label">Ativos</span></div>
+                        <div class="pool-stat"><span class="value">${convertedLeads}</span><span class="label">Convertidos</span></div>
                     </div>
                 </div>
             `;
@@ -1748,24 +1864,25 @@ async function loadGroups() {
             const gname = g.name || g.subject || 'Grupo sem nome';
             const count = (g.participants != null ? g.participants : (g.size != null ? g.size : null));
             const isJournal = !!g.is_journal;
-            let poolLabel = '';
+            let poolBadge = '';
             if (g.pool_id) {
                 const linkedPool = poolsCache.find(p => String(p.id) === String(g.pool_id));
-                poolLabel = `<span class="tag">📦 ${linkedPool ? linkedPool.name : g.pool_id}</span>`;
+                poolBadge = `<span class="tag">📦 ${linkedPool ? linkedPool.name : g.pool_id}</span>`;
             }
+            const journalBadge = isJournal ? '<span class="group-badge journal">📰 Jornal</span>' : '';
             return `
-                <div class="card">
-                    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;flex-wrap:wrap">
-                        <strong style="font-size:1rem">${gname}</strong>
-                        ${isJournal ? '<span class="group-badge">📰 Jornal</span>' : ''}
-                        ${poolLabel}
+                <div class="group-card">
+                    <div class="card-header">
+                        <h3>${gname}</h3>
+                        <div style="display:flex;gap:0.4rem;align-items:center">
+                            ${journalBadge}
+                            <button class="btn btn-ghost btn-xs" onclick="toggleJournal('${g.id}', ${!isJournal})">📰</button>
+                            <button class="btn btn-ghost btn-xs" onclick="assignGroupPoolModal('${g.id}')">🗂️</button>
+                            <button class="btn btn-danger btn-xs" onclick="deleteGroup('${g.id}','${gname.replace(/'/g, "\\'")}')">🗑️</button>
+                        </div>
                     </div>
-                    ${count != null ? `<div class="text-muted text-sm" style="margin-bottom:0.5rem">👥 ${count} participantes</div>` : ''}
-                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem">
-                        <button class="btn btn-secondary btn-sm" onclick="toggleJournal('${g.id}', ${!isJournal})">${isJournal ? 'Desmarcar Jornal' : 'Marcar Jornal'}</button>
-                        <button class="btn btn-secondary btn-sm" onclick="assignGroupPoolModal('${g.id}')">🔗 Vincular a bolsão</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteGroup('${g.id}', '${gname.replace(/'/g, "\\'")}')">🗑️ Remover</button>
-                    </div>
+                    <p class="text-muted text-sm">${count != null ? count : '—'} participantes</p>
+                    ${poolBadge}
                 </div>
             `;
         }).join('');
@@ -1846,22 +1963,18 @@ async function loadSegments() {
         }
 
         container.innerHTML = segments.map(seg => {
-            let poolLabel = '';
-            if (seg.pool_id) {
-                const linkedPool = poolsCache.find(p => String(p.id) === String(seg.pool_id));
-                poolLabel = `<span class="tag">📦 ${linkedPool ? linkedPool.name : seg.pool_id}</span>`;
-            }
+            const memberCount = seg.member_count ?? seg.members ?? 0;
             return `
-                <div class="card segment-card">
-                    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;flex-wrap:wrap">
-                        <strong style="font-size:1rem">${seg.name || 'Sem nome'}</strong>
-                        ${poolLabel}
+                <div class="segment-card">
+                    <div class="card-header">
+                        <h3>${seg.name || 'Sem nome'}</h3>
+                        <div style="display:flex;gap:0.4rem">
+                            <button class="btn btn-ghost btn-xs" onclick="viewSegmentMembers('${seg.id}','${(seg.name || '').replace(/'/g, "\\'")}')">👥 Membros</button>
+                            <button class="btn btn-danger btn-xs" onclick="deleteSegment('${seg.id}','${(seg.name || '').replace(/'/g, "\\'")}')">🗑️</button>
+                        </div>
                     </div>
-                    ${seg.description ? `<div class="text-muted text-sm" style="margin-bottom:0.5rem">${seg.description}</div>` : ''}
-                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem">
-                        <button class="btn btn-secondary btn-sm" onclick="viewSegmentMembers('${seg.id}', '${(seg.name || '').replace(/'/g, "\\'")}')">👥 Ver membros</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteSegment('${seg.id}', '${(seg.name || '').replace(/'/g, "\\'")}')">🗑️ Excluir</button>
-                    </div>
+                    <p class="segment-description">${seg.description || ''}</p>
+                    <div style="font-size:0.78rem;color:var(--text-muted)">${memberCount} membros</div>
                 </div>
             `;
         }).join('');
@@ -1936,7 +2049,7 @@ async function removeSegmentMember(segId, leadId) {
     try {
         await api(`/api/segments/${segId}/members/${leadId}`, { method: 'DELETE' });
         toast('Membro removido', 'info');
-        viewSegmentMembers(segId);
+        viewSegmentMembers(segId, currentSegmentName);
     } catch (err) { toast(err.message, 'error'); }
 }
 
@@ -1958,29 +2071,40 @@ async function loadInstanceSettings() {
   try {
     const data = await api('/api/instance/settings');
     container.innerHTML = `
-      <div class="card" style="max-width:520px">
-        <h3 style="margin-bottom:1.25rem">⚙️ Configurações da Instância</h3>
-        <div class="form-group">
-          <label>Nome de exibição</label>
-          <input type="text" id="settings-display-name" class="form-control" value="${data.display_name || ''}" placeholder="Ex: Corretor João">
+        <div class="settings-section" style="max-width:600px">
+            <div class="settings-section-header">⚙️ Configurações da Instância</div>
+            <div class="settings-section-body">
+                <div class="settings-row">
+                    <div class="settings-row-info">
+                        <label>Nome de exibição</label>
+                        <p>Como este número aparece no painel</p>
+                    </div>
+                    <input type="text" id="settings-display-name" style="width:200px" value="${data.display_name || ''}" placeholder="Ex: Corretor João">
+                </div>
+                <div class="settings-row">
+                    <div class="settings-row-info">
+                        <label>Limite diário de disparos</label>
+                        <p>Máximo de mensagens por dia neste número</p>
+                    </div>
+                    <input type="number" id="settings-daily-limit" style="width:100px" value="${data.daily_limit ?? 40}" min="1" max="500">
+                </div>
+                <div class="settings-row">
+                    <div class="settings-row-info">
+                        <label>Modo warmup</label>
+                        <p>Aquecimento gradual para números novos</p>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="settings-warmup" ${data.warmup_enabled ? 'checked' : ''}>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
         </div>
-        <div class="form-group">
-          <label>Limite diário de disparos</label>
-          <input type="number" id="settings-daily-limit" class="form-control" value="${data.daily_limit ?? 40}" min="1" max="500">
+        <div style="display:flex;gap:0.75rem;margin-top:1rem;max-width:600px">
+            <button class="btn btn-primary" onclick="saveInstanceSettings()">💾 Salvar</button>
+            <button class="btn btn-secondary" onclick="openChangePasswordModal()">🔑 Alterar Senha</button>
         </div>
-        <div class="form-group" style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem">
-          <label class="checkbox-container" style="margin:0">
-            <input type="checkbox" id="settings-warmup" ${data.warmup_enabled ? 'checked' : ''}>
-            <span class="checkmark"></span>
-          </label>
-          <span style="font-size:.9rem">Ativar modo warmup (aquecimento gradual)</span>
-        </div>
-        <div style="display:flex;gap:.75rem;margin-top:1.5rem;flex-wrap:wrap">
-          <button class="btn btn-primary" onclick="saveInstanceSettings()">💾 Salvar configurações</button>
-          <button class="btn btn-secondary" onclick="openChangePasswordModal()">🔑 Alterar senha</button>
-        </div>
-        <div id="settings-feedback" style="margin-top:.75rem"></div>
-      </div>
+        <div id="settings-feedback" style="margin-top:0.75rem"></div>
     `;
   } catch (err) {
     container.innerHTML = `<p class="text-danger">Erro ao carregar configurações: ${err.message}</p>`;

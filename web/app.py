@@ -26,6 +26,8 @@ def create_app() -> Flask:
     )
     app.secret_key = WEB_SECRET_KEY
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_SECURE"] = os.environ.get("RENDER", "") != ""
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
 
     # ═══════════════════════════════════════════════════════════════
     # ROTAS DE PÁGINAS
