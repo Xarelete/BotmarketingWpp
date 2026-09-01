@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Macro Construtora — Painel de Remarketing Inteligente via WhatsApp para o mercado imobiliário">
-    <meta name="theme-color" content="#16110E">
-    <title>Macro Construtora — Painel de Remarketing</title>
+    <meta name="description" content="IMOB Smart Bot — Painel de Remarketing Inteligente via WhatsApp para o mercado imobiliário">
+    <meta name="theme-color" content="#4F46E5">
+    <title>IMOB Smart Bot — Painel de Remarketing</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=8.0.0">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=9.0.0">
 </head>
 <body>
 
 <!-- ═══════════════════════════════════════════════════════ -->
-<!-- LOGIN SCREEN (MACRO HERO)                               -->
+<!-- LOGIN SCREEN                                           -->
 <!-- ═══════════════════════════════════════════════════════ -->
 <div id="login-screen">
     <div class="login-mesh-orb"></div>
@@ -23,14 +23,12 @@
     <div class="login-card">
         <div class="login-logo">
             <div class="logo-icon">
-                <svg width="34" height="34" viewBox="0 0 28 28" fill="none">
-                    <path d="M4 23V10.5L14 4L24 10.5V23" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M14 4V23" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
-                    <path d="M4 14L14 10L24 14" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                 </svg>
             </div>
-            <h1>MACRO Construtora</h1>
-            <p>Painel de Remarketing Imobiliário</p>
+            <h1>IMOB Smart Bot</h1>
+            <p>Remarketing Inteligente via WhatsApp</p>
         </div>
         <form id="login-form" onsubmit="return handleLogin(event)">
             <div class="form-group">
@@ -73,7 +71,7 @@
                 <span class="toggle-icon">☰</span>
             </button>
             <nav class="breadcrumb" id="breadcrumb" aria-label="Navegação">
-                <span class="breadcrumb-item breadcrumb-home">🏢 MACRO</span>
+                <span class="breadcrumb-item breadcrumb-home">🏢 IMOB Bot</span>
                 <span class="breadcrumb-sep">›</span>
                 <span class="breadcrumb-item breadcrumb-current" id="breadcrumb-current">Dashboard</span>
             </nav>
@@ -92,15 +90,13 @@
         <div class="sidebar-header">
             <div class="sidebar-logo">
                 <div class="logo-mark">
-                    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-                        <path d="M4 23V10.5L14 4L24 10.5V23" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M14 4V23" stroke="white" stroke-width="2.4" stroke-linecap="round"/>
-                        <path d="M4 14L14 10L24 14" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="#fff">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                     </svg>
                 </div>
                 <div class="sidebar-logo-text-wrap">
-                    <div class="logo-text">MACRO</div>
-                    <div class="logo-sub">Construtora</div>
+                    <div class="logo-text">IMOB Bot</div>
+                    <div class="logo-sub">Smart Marketing</div>
                 </div>
             </div>
         </div>
@@ -173,7 +169,7 @@
                 <button onclick="switchInstance()" class="btn btn-ghost btn-sm" style="flex:1">🔄 Trocar</button>
                 <button onclick="handleLogout()" class="btn btn-ghost btn-sm" style="flex:1">Sair</button>
             </div>
-            <div class="version-badge">v8.0.0 — Macro Editorial</div>
+            <div class="version-badge">v9.0.0 — Luminous Slate</div>
         </div>
     </aside>
 
@@ -188,7 +184,7 @@
             <div class="page-header">
                 <div>
                     <h1>Dashboard Operacional</h1>
-                    <p class="page-subtitle">Visão geral em tempo real do funil e das operações ativas da Macro Construtora.</p>
+                    <p class="page-subtitle">Visão geral em tempo real do funil e das operações ativas.</p>
                 </div>
                 <div class="header-actions">
                     <button onclick="loadDashboard()" class="btn btn-secondary btn-sm">🔄 Atualizar Dados</button>
@@ -196,13 +192,13 @@
             </div>
             <div class="stats-grid" id="stats-grid"></div>
             <div class="dashboard-split mt-4">
-                <div class="card card-orange">
+                <div class="card card-indigo">
                     <div class="card-header">
                         <h3 style="margin:0">📡 Motor Automático de Disparos</h3>
                     </div>
                     <div id="engine-status-panel" class="mt-2"></div>
                 </div>
-                <div class="card card-teal">
+                <div class="card card-emerald">
                     <div class="card-header">
                         <h3 style="margin:0">📋 Últimos Disparos do Funil</h3>
                     </div>
@@ -221,7 +217,7 @@
             </div>
 
             <!-- Progress bar -->
-            <div id="broadcast-progress-container" class="card card-orange hidden" style="margin-bottom:1.5rem">
+            <div id="broadcast-progress-container" class="card card-indigo hidden" style="margin-bottom:1.5rem">
                 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem">
                     <div>
                         <div id="broadcast-progress-title" style="font-weight:800;font-size:1.1rem">🚀 Disparo em andamento...</div>
@@ -273,12 +269,12 @@
                             <textarea id="bc-message-text" rows="6" placeholder="Digite sua mensagem... Use {primeiro_nome} para personalizar automaticamente." oninput="updateWhatsappPreview()"></textarea>
                         </div>
                         <div class="form-group">
-                            <label>Imagem ou Mídia do Empreendimento (Opcional)</label>
+                            <label>Imagem ou Mídia do Imóvel (Opcional)</label>
                             <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
                                 <input type="file" id="bc-image-file" accept="image/*" onchange="handleImageSelected(event)" style="flex:1">
                                 <input type="text" id="bc-image-url" placeholder="Ou cole a URL da imagem..." oninput="updateWhatsappPreview()" style="flex:1">
                             </div>
-                            <div id="bc-image-preview-badge" class="hidden" style="margin-top:0.65rem;display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:var(--orange-light);font-weight:600">
+                            <div id="bc-image-preview-badge" class="hidden" style="margin-top:0.65rem;display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:var(--emerald-dark);font-weight:600">
                                 📸 Imagem carregada e pronta para envio
                                 <button type="button" onclick="clearSelectedImage()" class="btn btn-ghost btn-xs">✕ Remover</button>
                             </div>
@@ -311,7 +307,7 @@
                     <div class="card">
                         <div class="card-header">
                             <h3 style="margin:0">👥 Destinatários do Disparo</h3>
-                            <span style="font-size:0.86rem;color:var(--text-secondary)"><strong id="bc-selected-count" style="color:var(--orange-light)">0</strong> selecionados</span>
+                            <span style="font-size:0.86rem;color:var(--text-secondary)"><strong id="bc-selected-count" style="color:var(--indigo)">0</strong> selecionados</span>
                         </div>
 
                         <!-- Target selection tabs -->
@@ -349,7 +345,7 @@
                                     <option value="">Carregando bolsões...</option>
                                 </select>
                             </div>
-                            <div id="bc-pool-info-box" class="text-sm text-secondary" style="padding:0.95rem;background:rgba(22,17,14,0.9);border-radius:var(--rmd);border:1px solid var(--border)">
+                            <div id="bc-pool-info-box" class="text-sm text-secondary" style="padding:0.95rem;background:#F8FAFC;border-radius:var(--radius-sm);border:1px solid var(--border)">
                                 Selecione um bolsão acima para carregar automaticamente todos os contatos vinculados.
                             </div>
                         </div>
@@ -371,7 +367,7 @@
                                     <option value="">Carregando segmentos...</option>
                                 </select>
                             </div>
-                            <div id="bc-segment-info-box" class="text-sm text-secondary" style="padding:0.95rem;background:rgba(22,17,14,0.9);border-radius:var(--rmd);border:1px solid var(--border)">
+                            <div id="bc-segment-info-box" class="text-sm text-secondary" style="padding:0.95rem;background:#F8FAFC;border-radius:var(--radius-sm);border:1px solid var(--border)">
                                 Selecione um segmento para disparar para todos os seus membros.
                             </div>
                         </div>
@@ -382,7 +378,7 @@
                     </div>
                 </div>
 
-                <!-- Preview col (iPhone Simulator Mockup) -->
+                <!-- Preview col (WhatsApp Simulator Mockup) -->
                 <div class="broadcast-preview-col">
                     <div class="phone-mockup">
                         <div class="phone-island-bar">
@@ -395,14 +391,14 @@
                                     <div class="phone-contact-name" id="preview-contact-name">Lead Exemplo</div>
                                     <div class="phone-contact-status" id="preview-contact-status">online</div>
                                 </div>
-                                <button type="button" class="btn btn-ghost btn-xs" onclick="generateRandomPreview()" title="Nova variação aleatória">🎲</button>
+                                <button type="button" class="btn btn-ghost btn-xs" style="color:#fff" onclick="generateRandomPreview()" title="Nova variação aleatória">🎲</button>
                             </div>
                             <div class="phone-body" id="preview-avatar">
                                 <div class="chat-bubble" id="whatsapp-bubble">
                                     <div id="preview-img-container" class="hidden">
                                         <img id="preview-img-tag" src="" alt="Imagem" style="width:100%;border-radius:10px;margin-bottom:0.5rem">
                                     </div>
-                                    <div id="preview-message-text">Olá! Temos uma novidade exclusiva para você da Macro Construtora. Gostaria de saber mais?</div>
+                                    <div id="preview-message-text">Olá! Temos uma novidade exclusiva sobre o empreendimento para você. Gostaria de saber mais?</div>
                                     <div class="chat-time" id="preview-time">12:00 ✓✓</div>
                                 </div>
                             </div>
@@ -590,6 +586,6 @@
 <!-- TOASTS -->
 <div id="toast-container" class="toast-container"></div>
 
-<script src="{{ url_for('static', filename='js/app.js') }}?v=8.0.0" defer></script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v=9.0.0" defer></script>
 </body>
 </html>
