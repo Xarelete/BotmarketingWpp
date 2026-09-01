@@ -1,6 +1,6 @@
 /* =============================================================================
    BotRemarketingIMOB — SPA App & Simulador WhatsApp (Vanilla JS)
-   Version: 10.0.0 — Dual-Tone Luxury UI (Terracotta, Teal & Warm Sand)
+   Version: 11.0.0 — Masterpiece Gradient UI (Terracotta Ember & Emerald Teal)
    ============================================================================= */
 
 // Estado global da aplicação
