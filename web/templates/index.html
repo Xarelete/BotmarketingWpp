@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="IMOB Smart Bot — Painel de Remarketing Inteligente via WhatsApp para o mercado imobiliário">
-    <meta name="theme-color" content="#4F46E5">
+    <meta name="theme-color" content="#16110E">
     <title>IMOB Smart Bot — Painel de Remarketing</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=9.0.0">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=10.0.0">
 </head>
 <body>
 
@@ -18,8 +18,6 @@
 <!-- LOGIN SCREEN                                           -->
 <!-- ═══════════════════════════════════════════════════════ -->
 <div id="login-screen">
-    <div class="login-mesh-orb"></div>
-    <div class="login-mesh-orb"></div>
     <div class="login-card">
         <div class="login-logo">
             <div class="logo-icon">
@@ -95,7 +93,7 @@
                     </svg>
                 </div>
                 <div class="sidebar-logo-text-wrap">
-                    <div class="logo-text">IMOB Bot</div>
+                    <div class="logo-text">IMOB BOT</div>
                     <div class="logo-sub">Smart Marketing</div>
                 </div>
             </div>
@@ -169,7 +167,7 @@
                 <button onclick="switchInstance()" class="btn btn-ghost btn-sm" style="flex:1">🔄 Trocar</button>
                 <button onclick="handleLogout()" class="btn btn-ghost btn-sm" style="flex:1">Sair</button>
             </div>
-            <div class="version-badge">v9.0.0 — Luminous Slate</div>
+            <div class="version-badge">v10.0.0 — Dual-Tone Luxury</div>
         </div>
     </aside>
 
@@ -192,13 +190,13 @@
             </div>
             <div class="stats-grid" id="stats-grid"></div>
             <div class="dashboard-split mt-4">
-                <div class="card card-indigo">
+                <div class="card card-orange">
                     <div class="card-header">
                         <h3 style="margin:0">📡 Motor Automático de Disparos</h3>
                     </div>
                     <div id="engine-status-panel" class="mt-2"></div>
                 </div>
-                <div class="card card-emerald">
+                <div class="card card-teal">
                     <div class="card-header">
                         <h3 style="margin:0">📋 Últimos Disparos do Funil</h3>
                     </div>
@@ -217,7 +215,7 @@
             </div>
 
             <!-- Progress bar -->
-            <div id="broadcast-progress-container" class="card card-indigo hidden" style="margin-bottom:1.5rem">
+            <div id="broadcast-progress-container" class="card card-orange hidden" style="margin-bottom:1.5rem">
                 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem">
                     <div>
                         <div id="broadcast-progress-title" style="font-weight:800;font-size:1.1rem">🚀 Disparo em andamento...</div>
@@ -274,7 +272,7 @@
                                 <input type="file" id="bc-image-file" accept="image/*" onchange="handleImageSelected(event)" style="flex:1">
                                 <input type="text" id="bc-image-url" placeholder="Ou cole a URL da imagem..." oninput="updateWhatsappPreview()" style="flex:1">
                             </div>
-                            <div id="bc-image-preview-badge" class="hidden" style="margin-top:0.65rem;display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:var(--emerald-dark);font-weight:600">
+                            <div id="bc-image-preview-badge" class="hidden" style="margin-top:0.65rem;display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:var(--orange);font-weight:600">
                                 📸 Imagem carregada e pronta para envio
                                 <button type="button" onclick="clearSelectedImage()" class="btn btn-ghost btn-xs">✕ Remover</button>
                             </div>
@@ -307,7 +305,7 @@
                     <div class="card">
                         <div class="card-header">
                             <h3 style="margin:0">👥 Destinatários do Disparo</h3>
-                            <span style="font-size:0.86rem;color:var(--text-secondary)"><strong id="bc-selected-count" style="color:var(--indigo)">0</strong> selecionados</span>
+                            <span style="font-size:0.86rem;color:var(--text-secondary)"><strong id="bc-selected-count" style="color:var(--orange)">0</strong> selecionados</span>
                         </div>
 
                         <!-- Target selection tabs -->
@@ -345,7 +343,7 @@
                                     <option value="">Carregando bolsões...</option>
                                 </select>
                             </div>
-                            <div id="bc-pool-info-box" class="text-sm text-secondary" style="padding:0.95rem;background:#F8FAFC;border-radius:var(--radius-sm);border:1px solid var(--border)">
+                            <div id="bc-pool-info-box" class="text-sm text-secondary" style="padding:0.95rem;background:#EFEAE5;border-radius:var(--rsm);border:1px solid rgba(22,17,14,0.08)">
                                 Selecione um bolsão acima para carregar automaticamente todos os contatos vinculados.
                             </div>
                         </div>
@@ -367,7 +365,7 @@
                                     <option value="">Carregando segmentos...</option>
                                 </select>
                             </div>
-                            <div id="bc-segment-info-box" class="text-sm text-secondary" style="padding:0.95rem;background:#F8FAFC;border-radius:var(--radius-sm);border:1px solid var(--border)">
+                            <div id="bc-segment-info-box" class="text-sm text-secondary" style="padding:0.95rem;background:#EFEAE5;border-radius:var(--rsm);border:1px solid rgba(22,17,14,0.08)">
                                 Selecione um segmento para disparar para todos os seus membros.
                             </div>
                         </div>
@@ -586,6 +584,6 @@
 <!-- TOASTS -->
 <div id="toast-container" class="toast-container"></div>
 
-<script src="{{ url_for('static', filename='js/app.js') }}?v=9.0.0" defer></script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v=10.0.0" defer></script>
 </body>
 </html>
