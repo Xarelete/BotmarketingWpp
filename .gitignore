@@ -10,4 +10,5 @@ web/static/uploads/*
 !web/static/uploads/.gitkeep
 .venv/
 .postman/
-
+node_modules/
+Aplicativo/node_modules/
