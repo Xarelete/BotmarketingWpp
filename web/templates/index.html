@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="IMOB Smart Bot — Painel de Remarketing Inteligente via WhatsApp para o mercado imobiliário">
-    <meta name="theme-color" content="#090d16">
+    <meta name="theme-color" content="#070a12">
     <title>IMOB Smart Bot — Painel de Remarketing</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=5.0.0">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6.0.0">
 </head>
 <body>
 
@@ -91,7 +91,7 @@
         <div class="sidebar-header">
             <div class="sidebar-logo">
                 <div class="logo-mark">
-                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="#fff">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#fff">
                         <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
                     </svg>
                 </div>
@@ -170,7 +170,7 @@
                 <button onclick="switchInstance()" class="btn btn-ghost btn-sm" style="flex:1">🔄 Trocar</button>
                 <button onclick="handleLogout()" class="btn btn-ghost btn-sm" style="flex:1">Sair</button>
             </div>
-            <div class="version-badge">v5.0.0 — Modern Slate</div>
+            <div class="version-badge">v6.0.0 — Aurora Glass</div>
         </div>
     </aside>
 
@@ -184,21 +184,25 @@
         <section id="page-dashboard" class="page active">
             <div class="page-header">
                 <div>
-                    <h1>Dashboard</h1>
-                    <p class="page-subtitle">Visão geral em tempo real do funil e operações.</p>
+                    <h1>Dashboard Operacional</h1>
+                    <p class="page-subtitle">Visão geral em tempo real do funil e das operações ativas.</p>
                 </div>
                 <div class="header-actions">
-                    <button onclick="loadDashboard()" class="btn btn-secondary btn-sm">🔄 Atualizar</button>
+                    <button onclick="loadDashboard()" class="btn btn-secondary btn-sm">🔄 Atualizar Dados</button>
                 </div>
             </div>
             <div class="stats-grid" id="stats-grid"></div>
             <div class="dashboard-split mt-4">
                 <div class="card card-purple">
-                    <h3>📡 Motor Automático</h3>
+                    <div class="card-header">
+                        <h3 style="margin:0">📡 Motor Automático de Disparos</h3>
+                    </div>
                     <div id="engine-status-panel" class="mt-2"></div>
                 </div>
                 <div class="card card-blue">
-                    <h3>📋 Últimos Disparos</h3>
+                    <div class="card-header">
+                        <h3 style="margin:0">📋 Últimos Disparos do Funil</h3>
+                    </div>
                     <div id="recent-dispatches" class="mt-2"></div>
                 </div>
             </div>
@@ -208,8 +212,8 @@
         <section id="page-broadcast" class="page">
             <div class="page-header">
                 <div>
-                    <h1>Disparo Rápido</h1>
-                    <p class="page-subtitle">Envie mensagens instantâneas com preview ao vivo e humanização anti-spam.</p>
+                    <h1>Disparo Rápido & Simulador</h1>
+                    <p class="page-subtitle">Envie mensagens instantâneas com preview ao vivo do WhatsApp e proteção anti-bloqueio.</p>
                 </div>
             </div>
 
@@ -217,8 +221,8 @@
             <div id="broadcast-progress-container" class="card card-purple hidden" style="margin-bottom:1.5rem">
                 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem">
                     <div>
-                        <div id="broadcast-progress-title" style="font-weight:700;font-size:1.05rem">🚀 Disparo em andamento...</div>
-                        <div id="broadcast-progress-subtitle" class="text-muted text-sm" style="margin-top:0.2rem">Enviando com intervalos anti-bloqueio...</div>
+                        <div id="broadcast-progress-title" style="font-weight:800;font-size:1.1rem">🚀 Disparo em andamento...</div>
+                        <div id="broadcast-progress-subtitle" class="text-muted text-sm" style="margin-top:0.25rem">Enviando com pausas naturais anti-ban...</div>
                     </div>
                     <button onclick="cancelActiveBroadcast()" class="btn btn-danger btn-sm">🛑 Cancelar Disparo</button>
                 </div>
@@ -229,7 +233,7 @@
                     <span><strong id="prog-current">0</strong> / <strong id="prog-total">0</strong></span>
                     <span class="text-success">✅ <strong id="prog-success">0</strong></span>
                     <span class="text-danger">❌ <strong id="prog-failed">0</strong></span>
-                    <span class="text-muted">⏳ Próximo em: <strong id="prog-countdown">0s</strong></span>
+                    <span class="text-muted">⏳ Próximo envio em: <strong id="prog-countdown">0s</strong></span>
                 </div>
             </div>
 
@@ -239,11 +243,11 @@
                     <!-- Número remetente -->
                     <div class="card">
                         <div class="card-header">
-                            <h3 style="margin:0">📱 Número Remetente</h3>
+                            <h3 style="margin:0">📱 Número Remetente (WhatsApp)</h3>
                             <span id="instance-badge-status" class="badge badge-active">Conectado</span>
                         </div>
                         <div class="form-group" style="margin-bottom:0">
-                            <label>Instância WhatsApp Ativa</label>
+                            <label>Instância Selecionada</label>
                             <select id="bc-instance-select" onchange="handleInstanceChange(this.value)">
                                 <option value="">Carregando instâncias...</option>
                             </select>
@@ -259,43 +263,43 @@
                                 <button type="button" class="btn btn-ghost btn-xs" onclick="insertTag('{telefone}')">+ Tel</button>
                                 <button type="button" class="btn btn-ghost btn-xs" onclick="insertTag('{empreendimento}')">+ Empreendimento</button>
                                 <button type="button" class="btn btn-ghost btn-xs" onclick="insertTag('{Olá|Oi|E aí?}')">+ Spintax</button>
-                                <button type="button" class="btn btn-accent btn-xs" onclick="loadDefaultTemplate()">✨ Modelo</button>
+                                <button type="button" class="btn btn-accent btn-xs" onclick="loadDefaultTemplate()">✨ Modelo Pronto</button>
                             </div>
                         </div>
                         <div class="form-group">
-                            <textarea id="bc-message-text" rows="6" placeholder="Digite sua mensagem... Use {primeiro_nome} para personalizar." oninput="updateWhatsappPreview()"></textarea>
+                            <textarea id="bc-message-text" rows="6" placeholder="Digite sua mensagem... Use {primeiro_nome} para personalizar automaticamente." oninput="updateWhatsappPreview()"></textarea>
                         </div>
                         <div class="form-group">
                             <label>Imagem ou Mídia (Opcional)</label>
-                            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                            <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
                                 <input type="file" id="bc-image-file" accept="image/*" onchange="handleImageSelected(event)" style="flex:1">
                                 <input type="text" id="bc-image-url" placeholder="Ou cole a URL da imagem..." oninput="updateWhatsappPreview()" style="flex:1">
                             </div>
-                            <div id="bc-image-preview-badge" class="hidden" style="margin-top:0.6rem;display:flex;align-items:center;gap:0.5rem;font-size:0.84rem;color:var(--emerald)">
-                                📸 Imagem selecionada e pronta para envio
+                            <div id="bc-image-preview-badge" class="hidden" style="margin-top:0.65rem;display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:var(--emerald);font-weight:600">
+                                📸 Imagem carregada e pronta para envio
                                 <button type="button" onclick="clearSelectedImage()" class="btn btn-ghost btn-xs">✕ Remover</button>
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group" style="margin-bottom:0">
-                                <label>Intervalo Mín. (segundos)</label>
+                                <label>Delay Mínimo (segundos)</label>
                                 <input type="number" id="bc-min-delay" value="15" min="5" max="300">
                             </div>
                             <div class="form-group" style="margin-bottom:0">
-                                <label>Intervalo Máx. (segundos)</label>
+                                <label>Delay Máximo (segundos)</label>
                                 <input type="number" id="bc-max-delay" value="40" min="10" max="600">
                             </div>
                         </div>
-                        <div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:1.15rem">
+                        <div style="display:flex;flex-direction:column;gap:0.75rem;margin-top:1.25rem">
                             <label class="checkbox-container">
                                 <input type="checkbox" id="bc-vary-synonyms" checked onchange="updateWhatsappPreview()">
                                 <span class="checkmark"></span>
-                                ✨ Humanizador anti-spam (variação automática de sinônimos)
+                                ✨ Humanizador anti-spam (variação inteligente de sinônimos)
                             </label>
                             <label class="checkbox-container">
                                 <input type="checkbox" id="bc-vary-text" checked onchange="updateWhatsappPreview()">
                                 <span class="checkmark"></span>
-                                🎭 Variação sutil de emojis e pontuações
+                                🎭 Variação orgânica de pontuação e emojis
                             </label>
                         </div>
                     </div>
@@ -304,7 +308,7 @@
                     <div class="card">
                         <div class="card-header">
                             <h3 style="margin:0">👥 Destinatários do Disparo</h3>
-                            <span style="font-size:0.84rem;color:var(--text-secondary)"><strong id="bc-selected-count" style="color:var(--emerald)">0</strong> selecionados</span>
+                            <span style="font-size:0.86rem;color:var(--text-secondary)"><strong id="bc-selected-count" style="color:var(--emerald)">0</strong> selecionados</span>
                         </div>
 
                         <!-- Target selection tabs -->
@@ -323,7 +327,7 @@
                                     <option value="">Todas as tags</option>
                                 </select>
                             </div>
-                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem">
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
                                 <label class="checkbox-container" style="font-size:0.84rem">
                                     <input type="checkbox" id="bc-select-all" onchange="toggleSelectAllBroadcastLeads(this)">
                                     <span class="checkmark"></span>
@@ -331,7 +335,7 @@
                                 </label>
                                 <button type="button" class="btn btn-ghost btn-xs" onclick="clearBroadcastSelection()">Limpar seleção</button>
                             </div>
-                            <div id="bc-leads-table-container" class="table-responsive" style="max-height:280px;overflow-y:auto"></div>
+                            <div id="bc-leads-table-container" class="table-responsive" style="max-height:290px;overflow-y:auto"></div>
                         </div>
 
                         <!-- Target Tab: POOLS -->
@@ -342,18 +346,18 @@
                                     <option value="">Carregando bolsões...</option>
                                 </select>
                             </div>
-                            <div id="bc-pool-info-box" class="text-sm text-secondary" style="padding:0.75rem;background:rgba(15,23,42,0.6);border-radius:var(--radius-sm);border:1px solid var(--border)">
+                            <div id="bc-pool-info-box" class="text-sm text-secondary" style="padding:0.9rem;background:rgba(10,15,29,0.7);border-radius:var(--radius-sm);border:1px solid var(--border)">
                                 Selecione um bolsão acima para carregar automaticamente todos os contatos vinculados.
                             </div>
                         </div>
 
                         <!-- Target Tab: GROUPS -->
                         <div id="target-tab-groups-view" class="hidden">
-                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem">
                                 <span class="text-sm text-secondary">Grupos sincronizados do WhatsApp</span>
                                 <button type="button" class="btn btn-ghost btn-xs" onclick="syncGroups()">🔄 Sincronizar</button>
                             </div>
-                            <div id="bc-groups-list-container" style="max-height:280px;overflow-y:auto"></div>
+                            <div id="bc-groups-list-container" style="max-height:290px;overflow-y:auto"></div>
                         </div>
 
                         <!-- Target Tab: SEGMENTS -->
@@ -364,12 +368,12 @@
                                     <option value="">Carregando segmentos...</option>
                                 </select>
                             </div>
-                            <div id="bc-segment-info-box" class="text-sm text-secondary" style="padding:0.75rem;background:rgba(15,23,42,0.6);border-radius:var(--radius-sm);border:1px solid var(--border)">
+                            <div id="bc-segment-info-box" class="text-sm text-secondary" style="padding:0.9rem;background:rgba(10,15,29,0.7);border-radius:var(--radius-sm);border:1px solid var(--border)">
                                 Selecione um segmento para disparar para todos os seus membros.
                             </div>
                         </div>
 
-                        <button type="button" id="btn-start-broadcast" class="btn btn-primary btn-full btn-lg" style="margin-top:1.25rem" onclick="confirmAndStartBroadcast()">
+                        <button type="button" id="btn-start-broadcast" class="btn btn-primary btn-full btn-lg" style="margin-top:1.5rem" onclick="confirmAndStartBroadcast()">
                             🚀 Iniciar Disparo
                         </button>
                     </div>
@@ -385,12 +389,12 @@
                                     <div class="phone-contact-name" id="preview-contact-name">Lead Exemplo</div>
                                     <div class="phone-contact-status" id="preview-contact-status">online</div>
                                 </div>
-                                <button type="button" class="btn btn-ghost btn-xs" onclick="generateRandomPreview()" title="Nova variação">🎲</button>
+                                <button type="button" class="btn btn-ghost btn-xs" onclick="generateRandomPreview()" title="Nova variação aleatória">🎲</button>
                             </div>
                             <div class="phone-body" id="preview-avatar">
                                 <div class="chat-bubble" id="whatsapp-bubble">
                                     <div id="preview-img-container" class="hidden">
-                                        <img id="preview-img-tag" src="" alt="Imagem" style="width:100%;border-radius:8px;margin-bottom:0.4rem">
+                                        <img id="preview-img-tag" src="" alt="Imagem" style="width:100%;border-radius:10px;margin-bottom:0.5rem">
                                     </div>
                                     <div id="preview-message-text">Olá! Temos uma novidade exclusiva para você. Gostaria de saber mais?</div>
                                     <div class="chat-time" id="preview-time">12:00 ✓✓</div>
@@ -410,7 +414,7 @@
             <div class="page-header">
                 <div>
                     <h1>Bolsões de Leads</h1>
-                    <p class="page-subtitle">Organize e dispare para leads agrupados por empreendimento, campanha ou perfil.</p>
+                    <p class="page-subtitle">Organize e dispare para contatos agrupados por empreendimento, perfil ou lista VIP.</p>
                 </div>
                 <div class="header-actions">
                     <button onclick="showAddPoolModal()" class="btn btn-primary btn-sm">➕ Novo Bolsão</button>
@@ -424,7 +428,7 @@
             <div class="page-header">
                 <div>
                     <h1>Gestão de Leads</h1>
-                    <p class="page-subtitle">Gerencie contatos, status no funil, pausas individuais e bolsões.</p>
+                    <p class="page-subtitle">Gerencie contatos, status no funil, pausas individuais e vincule a bolsões.</p>
                 </div>
                 <div class="header-actions">
                     <button onclick="showAddLeadModal()" class="btn btn-primary btn-sm">+ Novo Lead</button>
@@ -454,7 +458,7 @@
                     <p class="page-subtitle">Sincronize grupos do WhatsApp, marque o Jornal da Construtora e vincule a bolsões.</p>
                 </div>
                 <div class="header-actions">
-                    <label class="checkbox-container" style="font-size:0.84rem">
+                    <label class="checkbox-container" style="font-size:0.85rem">
                         <input type="checkbox" id="groups-journal-only" onchange="loadGroups()">
                         <span class="checkmark"></span>
                         Somente Jornal
@@ -544,7 +548,7 @@
                     <p class="page-subtitle">Registro completo e status de entrega de cada mensagem disparada.</p>
                 </div>
                 <div class="header-actions">
-                    <button onclick="loadDispatchLog()" class="btn btn-secondary btn-sm">🔄 Atualizar</button>
+                    <button onclick="loadDispatchLog()" class="btn btn-secondary btn-sm">🔄 Atualizar Logs</button>
                 </div>
             </div>
             <div class="card">
@@ -580,6 +584,6 @@
 <!-- TOASTS -->
 <div id="toast-container" class="toast-container"></div>
 
-<script src="{{ url_for('static', filename='js/app.js') }}?v=5.0.0" defer></script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v=6.0.0" defer></script>
 </body>
 </html>
