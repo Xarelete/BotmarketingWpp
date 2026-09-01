@@ -336,3 +336,153 @@ async def check_whatsapp_connection(instance: str = None) -> bool:
     import asyncio
     connected, _ = await asyncio.to_thread(check_whatsapp_connection_sync, instance)
     return connected
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# GRUPOS DE WHATSAPP (JORNAL DA CONSTRUTORA + DISPARO PARA GRUPOS)
+# ═══════════════════════════════════════════════════════════════════════
+
+def list_whatsapp_groups_sync(instance: str = None) -> List[Dict[str, Any]]:
+    """
+    Busca todos os grupos reais de que a instância participa, via Evolution API.
+    Retorna lista de {group_jid, name, participants_count, picture_url}.
+    """
+    api_url = os.getenv("WHATSAPP_API_URL", WHATSAPP_API_URL).rstrip("/")
+    api_key = os.getenv("WHATSAPP_API_KEY", WHATSAPP_API_KEY)
+    target_instance = instance.strip() if instance else get_active_instance()
+
+    if not api_url or not target_instance:
+        return []
+
+    try:
+        headers = {"apikey": api_key, "User-Agent": "Mozilla/5.0"}
+        resp = requests.get(
+            f"{api_url}/group/fetchAllGroups/{target_instance}",
+            params={"getParticipants": "false"},
+            headers=headers,
+            timeout=20,
+        )
+        if resp.status_code != 200:
+            logger.warning("Falha ao buscar grupos: HTTP %d", resp.status_code)
+            return []
+
+        raw = resp.json()
+        # A Evolution pode retornar lista direta ou um objeto com chave.
+        if isinstance(raw, dict):
+            raw = raw.get("groups") or raw.get("data") or []
+        if not isinstance(raw, list):
+            return []
+
+        groups = []
+        for item in raw:
+            jid = item.get("id") or item.get("jid") or ""
+            if not jid:
+                continue
+            groups.append({
+                "group_jid": jid,
+                "name": item.get("subject") or item.get("name") or "Grupo sem nome",
+                "participants_count": item.get("size")
+                    or item.get("participantsCount")
+                    or (len(item.get("participants", [])) if isinstance(item.get("participants"), list) else 0)
+                    or 0,
+                "picture_url": item.get("pictureUrl") or item.get("profilePicUrl") or "",
+            })
+        return groups
+
+    except Exception as e:
+        logger.error("Erro ao listar grupos do WhatsApp: %s", e)
+        return []
+
+
+def send_whatsapp_group_message_sync(
+    group_jid: str,
+    text: str,
+    image_url: str = None,
+    instance: str = None,
+) -> Tuple[bool, str]:
+    """
+    Envia mensagem para um GRUPO. Reutiliza exatamente a mesma lógica de
+    payload/endpoint do envio individual (send_whatsapp_message_sync),
+    apenas usando o group_jid como 'number'. O group_jid já vem no formato
+    '...@g.us', então NÃO passa por clean_phone_number.
+    """
+    api_url = os.getenv("WHATSAPP_API_URL", WHATSAPP_API_URL).rstrip("/")
+    target_instance = instance.strip() if instance else get_active_instance()
+    api_key = os.getenv("WHATSAPP_API_KEY", WHATSAPP_API_KEY)
+
+    if not api_url or not target_instance:
+        return False, "Credenciais ou instância do WhatsApp não configuradas."
+    if not group_jid:
+        return False, "ID do grupo (group_jid) não informado."
+
+    headers = {
+        "Content-Type": "application/json",
+        "apikey": api_key,
+        "User-Agent": "Mozilla/5.0",
+    }
+
+    try:
+        media_data, mimetype = _get_image_payload(image_url) if image_url else (None, "image/jpeg")
+
+        if media_data:
+            endpoint = f"{api_url}/message/sendMedia/{target_instance}"
+            payload = {
+                "number": group_jid,
+                "mediatype": "image",
+                "mimetype": mimetype,
+                "caption": text,
+                "media": media_data,
+                "fileName": "imovel.jpg",
+                "options": {"delay": 1500, "presence": "composing"},
+            }
+        else:
+            endpoint = f"{api_url}/message/sendText/{target_instance}"
+            payload = {
+                "number": group_jid,
+                "text": text,
+                "linkPreview": False,
+                "options": {"delay": 1500, "presence": "composing"},
+            }
+
+        resp = requests.post(endpoint, json=payload, headers=headers, timeout=35)
+
+        if resp.status_code in (200, 201):
+            logger.info("✅ Mensagem enviada ao grupo %s via [%s]!", group_jid, target_instance)
+            return True, "OK"
+
+        error_detail = f"Evolution API HTTP {resp.status_code}: {resp.text}"
+        logger.warning("⚠️ (grupo) %s", error_detail)
+
+        # Fallback: se tentou com imagem e falhou, tenta texto puro.
+        if media_data:
+            fb_endpoint = f"{api_url}/message/sendText/{target_instance}"
+            fb_payload = {
+                "number": group_jid,
+                "text": text,
+                "linkPreview": False,
+                "options": {"delay": 1500, "presence": "composing"},
+            }
+            fb_resp = requests.post(fb_endpoint, json=fb_payload, headers=headers, timeout=25)
+            if fb_resp.status_code in (200, 201):
+                return True, "Enviado com sucesso (Fallback Texto)"
+
+        return False, error_detail
+
+    except Exception as e:
+        err_msg = f"Exceção no envio ao grupo ({group_jid}): {e}"
+        logger.error("❌ %s", err_msg)
+        return False, err_msg
+
+
+async def send_whatsapp_group_message(
+    group_jid: str,
+    text: str,
+    image_url: str = None,
+    instance: str = None,
+) -> bool:
+    """Wrapper assíncrono para envio a grupos."""
+    import asyncio
+    success, _ = await asyncio.to_thread(
+        send_whatsapp_group_message_sync, group_jid, text, image_url, instance
+    )
+    return success

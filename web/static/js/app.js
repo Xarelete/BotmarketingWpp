@@ -7,6 +7,7 @@ let allLeadsCache = [];
 let selectedLeadIds = new Set();
 let broadcastPollingInterval = null;
 let currentUploadedImageUrl = null;
+let poolsCache = [];
 
 // ═══════════════════════════════════════════
 // FORMATAÇÃO E MÁSCARA DE TELEFONE
@@ -78,6 +79,15 @@ async function api(url, options = {}) {
             throw new Error('Sessão expirada. Por favor, faça login novamente.');
         }
 
+        if (resp.status === 428) {
+            let data = {};
+            try { data = await resp.json(); } catch { }
+            if (data.code === 'no_instance') {
+                showInstanceSelection();
+            }
+            throw new Error(data.error || 'Nenhum número selecionado');
+        }
+
         const contentType = resp.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
             if (!resp.ok) {
@@ -126,22 +136,142 @@ function closeModal() {
 
 async function checkAuth() {
     try {
-        const data = await api('/api/auth/check');
-        if (data.authenticated) { showApp(); } else { showLogin(); }
-    } catch { showLogin(); }
+        const data = await api('/api/session');
+        if (data.authenticated && data.instance) {
+            setActiveInstanceBadge(data.instance);
+            showApp();
+        } else if (data.authenticated) {
+            // Admin logado globalmente, sem número selecionado (fallback)
+            setActiveInstanceBadge('');
+            showApp();
+        } else {
+            showInstanceSelection();
+        }
+    } catch { showInstanceSelection(); }
+}
+
+function setActiveInstanceBadge(instanceName) {
+    const badge = document.getElementById('active-instance-badge');
+    if (!badge) return;
+    if (instanceName) {
+        badge.textContent = `📱 ${instanceName}`;
+    } else {
+        badge.textContent = '👤 Admin';
+    }
 }
 
 function showLogin() {
-    document.getElementById('login-screen').classList.remove('hidden');
+    document.getElementById('instance-screen').classList.add('hidden');
     document.getElementById('app').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden');
+}
+
+function showInstanceSelection() {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app').classList.add('hidden');
+    document.getElementById('instance-screen').classList.remove('hidden');
+    loadAvailableInstances();
 }
 
 function showApp() {
     document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('instance-screen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     loadDashboard();
     checkActiveBroadcast();
     checkWhatsAppStatus();
+}
+
+// ═══════════════════════════════════════════
+// SELEÇÃO / LOGIN POR NÚMERO (INSTÂNCIA)
+// ═══════════════════════════════════════════
+
+async function loadAvailableInstances() {
+    const list = document.getElementById('instance-list');
+    if (!list) return;
+    list.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text-muted)">Carregando números...</div>';
+
+    try {
+        const data = await api('/api/instances/available');
+        const instances = data.instances || [];
+
+        if (instances.length === 0) {
+            list.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text-muted)">Nenhum número disponível no momento.</div>';
+            return;
+        }
+
+        list.innerHTML = instances.map(inst => {
+            const online = inst.status === 'open' || inst.status === 'connected';
+            const dotClass = online ? 'instance-dot online' : 'instance-dot offline';
+            const statusLabel = online ? 'Online' : 'Offline';
+            const name = inst.display_name || inst.name;
+            const phone = inst.phone_formatted ? `<div class="instance-phone">${inst.phone_formatted}</div>` : '';
+            const profile = inst.profile_name && inst.profile_name !== name ? `<div class="instance-profile">${inst.profile_name}</div>` : '';
+            const noAccess = inst.has_access ? '' : '<span class="instance-noaccess">sem acesso</span>';
+            const offlineNote = !online ? '<span class="instance-offline-note">offline — login ainda possível</span>' : '';
+            const clickable = inst.has_access ? `onclick="promptInstancePassword('${inst.name.replace(/'/g, "\\'")}', '${name.replace(/'/g, "\\'")}')"` : '';
+            return `
+                <div class="instance-card ${inst.has_access ? '' : 'no-access'}" ${clickable}>
+                    <span class="${dotClass}" title="${statusLabel}"></span>
+                    <div class="instance-info">
+                        <div class="instance-name">${name} ${noAccess}</div>
+                        ${phone}
+                        ${profile}
+                        ${offlineNote}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        list.innerHTML = `<div style="text-align:center;padding:1.5rem;color:var(--danger)">Erro ao carregar números: ${err.message}</div>`;
+    }
+}
+
+function promptInstancePassword(instanceName, displayName) {
+    openModal(`Acessar número: ${displayName}`, `
+        <div class="form-group">
+            <label>Senha do número</label>
+            <input type="password" id="instance-password-input" placeholder="Senha deste número" autocomplete="current-password">
+        </div>
+        <div id="instance-login-error" class="login-error"></div>
+        <button type="button" class="btn btn-primary btn-full mt-2" onclick="submitInstanceLogin('${instanceName.replace(/'/g, "\\'")}')">Entrar</button>
+    `);
+    setTimeout(() => {
+        const input = document.getElementById('instance-password-input');
+        if (input) {
+            input.focus();
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') submitInstanceLogin(instanceName);
+            });
+        }
+    }, 100);
+}
+
+function submitInstanceLogin(instanceName) {
+    const input = document.getElementById('instance-password-input');
+    const password = input ? input.value : '';
+    loginInstance(instanceName, password);
+}
+
+async function loginInstance(instanceName, password) {
+    try {
+        const data = await api('/api/instance/login', {
+            method: 'POST',
+            body: { instance: instanceName, password }
+        });
+        toast(`Número ${data.instance || instanceName} conectado com sucesso!`, 'success');
+        setActiveInstanceBadge(data.instance || instanceName);
+        closeModal();
+        showApp();
+    } catch (err) {
+        const errEl = document.getElementById('instance-login-error');
+        if (errEl) errEl.textContent = err.message || 'Senha incorreta para este número';
+        toast(err.message || 'Senha incorreta para este número', 'error');
+    }
+}
+
+function switchInstance() {
+    showInstanceSelection();
 }
 
 let wppStatusInterval = null;
@@ -181,6 +311,7 @@ async function handleLogin(e) {
     const pw = document.getElementById('login-password').value;
     try {
         await api('/api/auth/login', { method: 'POST', body: { password: pw } });
+        setActiveInstanceBadge('');
         showApp();
     } catch (err) {
         document.getElementById('login-error').textContent = 'Senha incorreta';
@@ -190,7 +321,8 @@ async function handleLogin(e) {
 
 async function handleLogout() {
     await api('/api/auth/logout', { method: 'POST' });
-    showLogin();
+    setActiveInstanceBadge('');
+    showInstanceSelection();
 }
 
 // ═══════════════════════════════════════════
@@ -214,6 +346,9 @@ document.querySelectorAll('.nav-item').forEach(item => {
             messages: loadMessagesPage,
             control: loadControlPage,
             log: loadDispatchLog,
+            pools: loadPools,
+            groups: loadGroups,
+            segments: loadSegments,
         };
         if (loaders[page]) loaders[page]();
     });
@@ -1464,6 +1599,354 @@ function formatDateTime(isoStr) {
             hour: '2-digit', minute: '2-digit'
         });
     } catch { return isoStr; }
+}
+
+// ═══════════════════════════════════════════
+// BOLSÕES / GRUPOS / SEGMENTOS (V2)
+// ═══════════════════════════════════════════
+
+// ---------- BOLSÕES (POOLS) ----------
+
+async function loadPools() {
+    const container = document.getElementById('pools-list');
+    if (!container) return;
+    try {
+        const data = await api('/api/pools');
+        poolsCache = data.pools || [];
+
+        if (poolsCache.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">📦 Nenhum bolsão criado ainda. Clique em "Novo Bolsão" para começar.</div>';
+            return;
+        }
+
+        container.innerHTML = poolsCache.map(pool => {
+            const color = pool.color || 'var(--accent)';
+            const statsObj = pool.stats || {};
+            const statsLine = Object.keys(statsObj).map(k => {
+                const v = statsObj[k];
+                if (typeof v === 'number' || typeof v === 'string') {
+                    return `<span class="pool-stat"><strong>${k}:</strong> ${v}</span>`;
+                }
+                return '';
+            }).join('');
+            return `
+                <div class="card pool-card" style="border-left-color:${color}">
+                    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem">
+                        <span class="pool-dot" style="background:${color}"></span>
+                        <strong style="font-size:1rem">${pool.name || 'Sem nome'}</strong>
+                        ${pool.status ? `<span class="tag">${pool.status}</span>` : ''}
+                    </div>
+                    ${pool.description ? `<div class="text-muted text-sm" style="margin-bottom:0.5rem">${pool.description}</div>` : ''}
+                    ${statsLine ? `<div class="pool-stats">${statsLine}</div>` : ''}
+                    <div style="display:flex;gap:0.5rem;margin-top:0.75rem">
+                        <button class="btn btn-secondary btn-sm" onclick="editPoolModal('${pool.id}')">✏️ Editar</button>
+                        <button class="btn btn-danger btn-sm" onclick="deletePool('${pool.id}', '${(pool.name || '').replace(/'/g, "\\'")}')">🗑️ Excluir</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+function showAddPoolModal() {
+    openModal('Novo Bolsão', `
+        <div class="form-group">
+            <label>Nome *</label>
+            <input type="text" id="pool-name" placeholder="Nome do bolsão">
+        </div>
+        <div class="form-group">
+            <label>Descrição</label>
+            <textarea id="pool-description" rows="3" placeholder="Descrição do bolsão..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Cor</label>
+            <input type="color" id="pool-color" value="#25D366">
+        </div>
+        <button type="button" class="btn btn-primary btn-full mt-2" onclick="createPool()">Criar Bolsão</button>
+    `);
+}
+
+async function createPool() {
+    const name = document.getElementById('pool-name').value.trim();
+    const description = document.getElementById('pool-description').value.trim();
+    const color = document.getElementById('pool-color').value;
+    if (!name) { toast('Informe o nome do bolsão', 'error'); return; }
+    try {
+        await api('/api/pools', { method: 'POST', body: { name, description, color } });
+        toast('Bolsão criado', 'success');
+        closeModal();
+        loadPools();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+function editPoolModal(poolId) {
+    const pool = poolsCache.find(p => String(p.id) === String(poolId));
+    if (!pool) { toast('Bolsão não encontrado', 'error'); return; }
+    openModal('Editar Bolsão', `
+        <div class="form-group">
+            <label>Nome *</label>
+            <input type="text" id="pool-edit-name" value="${(pool.name || '').replace(/"/g, '&quot;')}">
+        </div>
+        <div class="form-group">
+            <label>Descrição</label>
+            <textarea id="pool-edit-description" rows="3">${pool.description || ''}</textarea>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Cor</label>
+                <input type="color" id="pool-edit-color" value="${pool.color || '#25D366'}">
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <input type="text" id="pool-edit-status" value="${pool.status || ''}" placeholder="ativo / inativo">
+            </div>
+        </div>
+        <button type="button" class="btn btn-primary btn-full mt-2" onclick="updatePool('${pool.id}')">Salvar Alterações</button>
+    `);
+}
+
+async function updatePool(poolId) {
+    const name = document.getElementById('pool-edit-name').value.trim();
+    const description = document.getElementById('pool-edit-description').value.trim();
+    const color = document.getElementById('pool-edit-color').value;
+    const status = document.getElementById('pool-edit-status').value.trim();
+    if (!name) { toast('Informe o nome do bolsão', 'error'); return; }
+    try {
+        await api(`/api/pools/${poolId}`, { method: 'PUT', body: { name, description, color, status } });
+        toast('Bolsão atualizado', 'success');
+        closeModal();
+        loadPools();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function deletePool(poolId, name) {
+    if (!confirm(`Excluir o bolsão "${name}"?`)) return;
+    try {
+        await api(`/api/pools/${poolId}`, { method: 'DELETE' });
+        toast('Bolsão excluído', 'info');
+        loadPools();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+// ---------- GRUPOS (GROUPS) ----------
+
+async function loadGroups() {
+    const container = document.getElementById('groups-list');
+    if (!container) return;
+    const journalOnlyEl = document.getElementById('groups-journal-only');
+    const journalOnly = journalOnlyEl ? journalOnlyEl.checked : false;
+    try {
+        const data = await api(journalOnly ? '/api/groups?journal=true' : '/api/groups');
+        const groups = data.groups || [];
+
+        if (groups.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">💬 Nenhum grupo encontrado. Clique em "Sincronizar grupos" para importar do WhatsApp.</div>';
+            return;
+        }
+
+        container.innerHTML = groups.map(g => {
+            const gname = g.name || g.subject || 'Grupo sem nome';
+            const count = (g.participants != null ? g.participants : (g.size != null ? g.size : null));
+            const isJournal = !!g.is_journal;
+            let poolLabel = '';
+            if (g.pool_id) {
+                const linkedPool = poolsCache.find(p => String(p.id) === String(g.pool_id));
+                poolLabel = `<span class="tag">📦 ${linkedPool ? linkedPool.name : g.pool_id}</span>`;
+            }
+            return `
+                <div class="card">
+                    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;flex-wrap:wrap">
+                        <strong style="font-size:1rem">${gname}</strong>
+                        ${isJournal ? '<span class="group-badge">📰 Jornal</span>' : ''}
+                        ${poolLabel}
+                    </div>
+                    ${count != null ? `<div class="text-muted text-sm" style="margin-bottom:0.5rem">👥 ${count} participantes</div>` : ''}
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem">
+                        <button class="btn btn-secondary btn-sm" onclick="toggleJournal('${g.id}', ${!isJournal})">${isJournal ? 'Desmarcar Jornal' : 'Marcar Jornal'}</button>
+                        <button class="btn btn-secondary btn-sm" onclick="assignGroupPoolModal('${g.id}')">🔗 Vincular a bolsão</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteGroup('${g.id}', '${gname.replace(/'/g, "\\'")}')">🗑️ Remover</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function syncGroups() {
+    toast('Sincronizando grupos...', 'info');
+    try {
+        const data = await api('/api/groups/sync', { method: 'POST' });
+        const count = (data.synced != null ? data.synced : (data.total != null ? data.total : null));
+        toast(count != null ? `${count} grupos sincronizados!` : 'Grupos sincronizados com sucesso!', 'success');
+        loadGroups();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function toggleJournal(id, isJournal) {
+    try {
+        await api(`/api/groups/${id}/journal`, { method: 'POST', body: { is_journal: isJournal } });
+        toast(isJournal ? 'Grupo marcado como Jornal' : 'Grupo desmarcado', 'success');
+        loadGroups();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function assignGroupPoolModal(id) {
+    try {
+        const data = await api('/api/pools');
+        const pools = data.pools || [];
+        if (pools.length === 0) {
+            openModal('Vincular a bolsão', '<div class="text-muted" style="padding:1rem 0">Nenhum bolsão disponível. Crie um bolsão primeiro na aba Bolsões.</div>');
+            return;
+        }
+        openModal('Vincular a bolsão', `
+            <div class="form-group">
+                <label>Bolsão</label>
+                <select id="group-pool-select">
+                    ${pools.map(p => `<option value="${p.id}">${p.name || p.id}</option>`).join('')}
+                </select>
+            </div>
+            <button type="button" class="btn btn-primary btn-full mt-2" onclick="assignGroupPool('${id}')">Vincular</button>
+        `);
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function assignGroupPool(id) {
+    const sel = document.getElementById('group-pool-select');
+    const poolId = sel ? sel.value : '';
+    if (!poolId) { toast('Selecione um bolsão', 'error'); return; }
+    try {
+        await api(`/api/groups/${id}/pool`, { method: 'POST', body: { pool_id: poolId } });
+        toast('Grupo vinculado ao bolsão', 'success');
+        closeModal();
+        loadGroups();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function deleteGroup(id, name) {
+    if (!confirm(`Remover o grupo "${name}"?`)) return;
+    try {
+        await api(`/api/groups/${id}`, { method: 'DELETE' });
+        toast('Grupo removido', 'info');
+        loadGroups();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+// ---------- SEGMENTOS (SEGMENTS) ----------
+
+async function loadSegments() {
+    const container = document.getElementById('segments-list');
+    if (!container) return;
+    try {
+        const data = await api('/api/segments');
+        const segments = data.segments || [];
+
+        if (segments.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">🎯 Nenhum segmento criado ainda. Clique em "Novo Segmento" para começar.</div>';
+            return;
+        }
+
+        container.innerHTML = segments.map(seg => {
+            let poolLabel = '';
+            if (seg.pool_id) {
+                const linkedPool = poolsCache.find(p => String(p.id) === String(seg.pool_id));
+                poolLabel = `<span class="tag">📦 ${linkedPool ? linkedPool.name : seg.pool_id}</span>`;
+            }
+            return `
+                <div class="card segment-card">
+                    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;flex-wrap:wrap">
+                        <strong style="font-size:1rem">${seg.name || 'Sem nome'}</strong>
+                        ${poolLabel}
+                    </div>
+                    ${seg.description ? `<div class="text-muted text-sm" style="margin-bottom:0.5rem">${seg.description}</div>` : ''}
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem">
+                        <button class="btn btn-secondary btn-sm" onclick="viewSegmentMembers('${seg.id}', '${(seg.name || '').replace(/'/g, "\\'")}')">👥 Ver membros</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteSegment('${seg.id}', '${(seg.name || '').replace(/'/g, "\\'")}')">🗑️ Excluir</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function showAddSegmentModal() {
+    let poolOptions = '<option value="">— Sem bolsão —</option>';
+    try {
+        const data = await api('/api/pools');
+        (data.pools || []).forEach(p => {
+            poolOptions += `<option value="${p.id}">${p.name || p.id}</option>`;
+        });
+    } catch (err) { /* segue sem opções de bolsão */ }
+    openModal('Novo Segmento', `
+        <div class="form-group">
+            <label>Nome *</label>
+            <input type="text" id="segment-name" placeholder="Nome do segmento">
+        </div>
+        <div class="form-group">
+            <label>Descrição</label>
+            <textarea id="segment-description" rows="3" placeholder="Descrição do segmento..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Bolsão</label>
+            <select id="segment-pool">${poolOptions}</select>
+        </div>
+        <button type="button" class="btn btn-primary btn-full mt-2" onclick="createSegment()">Criar Segmento</button>
+    `);
+}
+
+async function createSegment() {
+    const name = document.getElementById('segment-name').value.trim();
+    const description = document.getElementById('segment-description').value.trim();
+    const poolSel = document.getElementById('segment-pool');
+    const poolId = poolSel ? poolSel.value : '';
+    if (!name) { toast('Informe o nome do segmento', 'error'); return; }
+    const body = { name, description };
+    if (poolId) body.pool_id = poolId;
+    try {
+        await api('/api/segments', { method: 'POST', body });
+        toast('Segmento criado', 'success');
+        closeModal();
+        loadSegments();
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function viewSegmentMembers(id, name) {
+    try {
+        const data = await api(`/api/segments/${id}/members`);
+        const leadIds = data.lead_ids || [];
+        const title = name ? `Membros — ${name}` : 'Membros do segmento';
+        if (leadIds.length === 0) {
+            openModal(title, '<div class="text-muted" style="padding:1rem 0">Nenhum membro neste segmento ainda.</div>');
+            return;
+        }
+        openModal(title, `
+            <div class="text-muted text-sm" style="margin-bottom:0.75rem">${leadIds.length} membro(s)</div>
+            <div>
+                ${leadIds.map(leadId => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid var(--border)">
+                        <span style="font-family:monospace;font-size:0.85rem">${leadId}</span>
+                        <button class="btn btn-danger btn-xs" onclick="removeSegmentMember('${id}', '${leadId}')">Remover</button>
+                    </div>
+                `).join('')}
+            </div>
+        `);
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function removeSegmentMember(segId, leadId) {
+    try {
+        await api(`/api/segments/${segId}/members/${leadId}`, { method: 'DELETE' });
+        toast('Membro removido', 'info');
+        viewSegmentMembers(segId);
+    } catch (err) { toast(err.message, 'error'); }
+}
+
+async function deleteSegment(id, name) {
+    if (!confirm(`Excluir o segmento "${name}"?`)) return;
+    try {
+        await api(`/api/segments/${id}`, { method: 'DELETE' });
+        toast('Segmento excluído', 'info');
+        loadSegments();
+    } catch (err) { toast(err.message, 'error'); }
 }
 
 // ═══════════════════════════════════════════

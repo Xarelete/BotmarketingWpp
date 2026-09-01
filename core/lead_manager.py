@@ -47,8 +47,13 @@ def add_lead(
     tags: List[str] = None,
     added_by: str = "admin",
     notes: str = "",
+    instance_name: str = None,
+    pool_id: str = None,
 ) -> Optional[Dict[str, Any]]:
-    """Adiciona um lead. Retorna o lead criado ou None se duplicado."""
+    """Adiciona um lead. Retorna o lead criado ou None se duplicado.
+
+    instance_name/pool_id (opcionais) vinculam o lead a um número e bolsão.
+    """
     sb = get_supabase()
     normalized = _normalize_phone(phone)
 
@@ -75,6 +80,10 @@ def add_lead(
         "paused": False,
         "remarketing_day": 0,
     }
+    if instance_name:
+        lead_data["instance_name"] = instance_name
+    if pool_id:
+        lead_data["pool_id"] = pool_id
 
     result = sb.table("leads").insert(lead_data).execute()
     if result.data:
@@ -225,13 +234,19 @@ def list_leads(
     search: str = None,
     limit: int = 50,
     paused_only: bool = False,
+    instance_name: str = None,
+    pool_id: str = None,
 ) -> List[Dict[str, Any]]:
-    """Lista leads com filtros."""
+    """Lista leads com filtros. instance_name/pool_id filtram por número/bolsão."""
     sb = get_supabase()
     query = sb.table("leads").select("*")
 
     if status:
         query = query.eq("status", status)
+    if instance_name:
+        query = query.eq("instance_name", instance_name)
+    if pool_id:
+        query = query.eq("pool_id", pool_id)
     if paused_only:
         query = query.eq("paused", True)
     if search:
@@ -291,12 +306,15 @@ def get_leads_for_sending(
     campaign_id: str,
     target_tags: List[str] = None,
     today: str = None,
+    instance_name: str = None,
+    pool_id: str = None,
 ) -> List[Dict[str, Any]]:
     """
     Retorna leads elegíveis para envio HOJE:
     - Status ativo, não pausado
     - next_send_date <= hoje (ou nulo = ainda não no funil)
     - Não enviado hoje nesta campanha
+    - (opcional) filtrado por número (instance_name) e bolsão (pool_id)
     """
     sb = get_supabase()
     if today is None:
@@ -310,6 +328,10 @@ def get_leads_for_sending(
 
     # Busca leads ativos e não pausados
     query = sb.table("leads").select("*").eq("status", "active").eq("paused", False)
+    if instance_name:
+        query = query.eq("instance_name", instance_name)
+    if pool_id:
+        query = query.eq("pool_id", pool_id)
     result = query.order("remarketing_day", desc=False).execute()
     leads = result.data or []
 

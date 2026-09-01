@@ -39,8 +39,13 @@ def create_campaign(
     custom_data: Dict[str, Any] = None,
     schedule: Dict[str, Any] = None,
     funnel_days: List[int] = None,
+    instance_name: str = None,
+    pool_id: str = None,
 ) -> Dict[str, Any]:
-    """Cria uma nova campanha de remarketing."""
+    """Cria uma nova campanha de remarketing.
+
+    instance_name/pool_id (opcionais) vinculam a campanha a um número/bolsão.
+    """
     sb = get_supabase()
 
     default_schedule = {
@@ -254,12 +259,14 @@ def delete_day_message(campaign_id: str, day: int) -> bool:
 # CONSULTAS
 # ═══════════════════════════════════════════════════════════════════════
 
-def list_campaigns(status: str = None) -> List[Dict[str, Any]]:
-    """Lista campanhas, opcionalmente filtrando por status."""
+def list_campaigns(status: str = None, instance_name: str = None) -> List[Dict[str, Any]]:
+    """Lista campanhas, opcionalmente filtrando por status e/ou número."""
     sb = get_supabase()
     query = sb.table("campaigns").select("*")
     if status:
         query = query.eq("status", status)
+    if instance_name:
+        query = query.eq("instance_name", instance_name)
     result = query.order("created_at", desc=True).execute()
 
     campaigns = result.data or []

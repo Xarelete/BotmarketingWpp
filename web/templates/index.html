@@ -7,7 +7,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.5.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.6.0">
 </head>
 <body>
     <!-- ═══════════════════════════════════════ -->
@@ -27,6 +27,22 @@
                 <button type="submit" class="btn btn-primary btn-full">Acessar Painel</button>
             </form>
             <div id="login-error" class="login-error"></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- INSTANCE SELECTION SCREEN (POR NÚMERO) -->
+    <!-- ═══════════════════════════════════════ -->
+    <div id="instance-screen" class="login-screen hidden">
+        <div class="login-card" style="max-width:560px">
+            <div class="login-badge">ACESSO POR NÚMERO</div>
+            <div class="login-logo">📱</div>
+            <h1>Selecione seu número</h1>
+            <p>Escolha o número do WhatsApp que você deseja gerenciar.</p>
+            <div id="instance-list"></div>
+            <div style="margin-top:1.25rem">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="showLogin()">Entrar como administrador</button>
+            </div>
         </div>
     </div>
 
@@ -59,6 +75,18 @@
                     <span class="nav-icon">👥</span>
                     <span class="nav-label">Bolsão de Leads</span>
                 </a>
+                <a href="#" class="nav-item" data-page="pools">
+                    <span class="nav-icon">🗂️</span>
+                    <span class="nav-label">Bolsões</span>
+                </a>
+                <a href="#" class="nav-item" data-page="groups">
+                    <span class="nav-icon">📣</span>
+                    <span class="nav-label">Grupos</span>
+                </a>
+                <a href="#" class="nav-item" data-page="segments">
+                    <span class="nav-icon">🎯</span>
+                    <span class="nav-label">Segmentos</span>
+                </a>
                 <a href="#" class="nav-item" data-page="campaigns">
                     <span class="nav-icon">🚀</span>
                     <span class="nav-label">Funil & Campanhas</span>
@@ -77,7 +105,9 @@
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <div class="connection-pill" id="wpp-connection-pill">
+                <div id="active-instance-badge" class="active-instance-badge"></div>
+                <button onclick="switchInstance()" class="btn btn-ghost btn-xs btn-full mt-2">🔄 Trocar número</button>
+                <div class="connection-pill mt-2" id="wpp-connection-pill">
                     <span class="status-pulse-dot" id="wpp-status-dot"></span> <span id="wpp-status-label">WhatsApp Conectado</span>
                 </div>
                 <button onclick="handleLogout()" class="btn btn-ghost btn-sm btn-full mt-2">Sair da Conta</button>
@@ -399,6 +429,55 @@
                     <div id="dispatch-log-table"></div>
                 </div>
             </section>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- BOLSÕES (POOLS)                        -->
+            <!-- ═══════════════════════════════════════ -->
+            <section id="page-pools" class="page">
+                <div class="page-header">
+                    <div>
+                        <h1>Bolsões</h1>
+                        <p class="page-subtitle">Organize seus leads em bolsões por empreendimento, campanha ou perfil.</p>
+                    </div>
+                    <button onclick="showAddPoolModal()" class="btn btn-primary btn-sm">➕ Novo Bolsão</button>
+                </div>
+                <div id="pools-list"></div>
+            </section>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- GRUPOS (WHATSAPP / JORNAL)             -->
+            <!-- ═══════════════════════════════════════ -->
+            <section id="page-groups" class="page">
+                <div class="page-header">
+                    <div>
+                        <h1>Grupos</h1>
+                        <p class="page-subtitle">Sincronize grupos do WhatsApp, marque o Jornal da Construtora e vincule a bolsões.</p>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:1rem">
+                        <label class="checkbox-container" style="margin-bottom:0">
+                            <input type="checkbox" id="groups-journal-only" onchange="loadGroups()">
+                            <span class="checkmark"></span>
+                            <strong>Somente Jornal</strong>
+                        </label>
+                        <button onclick="syncGroups()" class="btn btn-primary btn-sm">🔄 Sincronizar grupos</button>
+                    </div>
+                </div>
+                <div id="groups-list"></div>
+            </section>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- SEGMENTOS                              -->
+            <!-- ═══════════════════════════════════════ -->
+            <section id="page-segments" class="page">
+                <div class="page-header">
+                    <div>
+                        <h1>Segmentos</h1>
+                        <p class="page-subtitle">Crie listas internas de leads para disparos e campanhas segmentadas.</p>
+                    </div>
+                    <button onclick="showAddSegmentModal()" class="btn btn-primary btn-sm">➕ Novo Segmento</button>
+                </div>
+                <div id="segments-list"></div>
+            </section>
         </main>
     </div>
 
@@ -418,6 +497,6 @@
     <!-- TOAST -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}?v=2.5.0"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=2.6.0" defer></script>
 </body>
 </html>

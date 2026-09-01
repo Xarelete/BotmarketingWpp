@@ -145,6 +145,121 @@ body {
 }
 
 /* ═══════════════════════════════════════════
+   SELEÇÃO DE NÚMERO (INSTÂNCIAS)
+   ═══════════════════════════════════════════ */
+
+#instance-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-top: 1.25rem;
+    text-align: left;
+}
+
+#instance-list .instance-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.85rem 1rem;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+#instance-list .instance-card:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px var(--accent-glow);
+}
+
+#instance-list .instance-card.no-access {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+#instance-list .instance-card.no-access:hover {
+    background: var(--bg-input);
+    border-color: var(--border);
+    transform: none;
+    box-shadow: none;
+}
+
+#instance-list .instance-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+#instance-list .instance-dot.online {
+    background: var(--success);
+    box-shadow: 0 0 8px var(--success);
+}
+
+#instance-list .instance-dot.offline {
+    background: var(--text-muted);
+}
+
+#instance-list .instance-info {
+    flex: 1;
+    min-width: 0;
+}
+
+#instance-list .instance-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.92rem;
+}
+
+#instance-list .instance-phone {
+    font-family: monospace;
+    font-size: 0.82rem;
+    color: var(--accent);
+    margin-top: 0.15rem;
+}
+
+#instance-list .instance-profile {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin-top: 0.1rem;
+}
+
+#instance-list .instance-noaccess {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--danger);
+    background: rgba(239, 68, 68, 0.15);
+    padding: 0.1rem 0.4rem;
+    border-radius: 6px;
+    margin-left: 0.35rem;
+}
+
+#instance-list .instance-offline-note {
+    display: inline-block;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+}
+
+.active-instance-badge {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-glow);
+    border: 1px solid rgba(229, 184, 90, 0.3);
+    border-radius: 8px;
+    padding: 0.35rem 0.6rem;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ═══════════════════════════════════════════
    BUTTONS
    ═══════════════════════════════════════════ */
 
@@ -969,4 +1084,192 @@ tr:hover td { background: rgba(229, 184, 90, 0.04); }
     .brand-box { justify-content: center; }
     .nav-item { justify-content: center; padding: 0.75rem; border-left: none; }
     .main-content { margin-left: 70px; padding: 1rem; }
+}
+
+/* ═══════════════════════════════════════════
+   V2: Pools / Groups / Segments / Layout helpers
+   ═══════════════════════════════════════════ */
+
+/* --- Responsive grid wrappers for the list containers --- */
+#pools-list, #segments-list, #groups-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+/* --- Pool cards --- */
+.pool-card {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    transition: all var(--transition);
+}
+
+.pool-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.pool-card .pool-card-header,
+.pool-card .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Small round color indicator; background color is set inline by JS */
+.pool-dot {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.35);
+}
+
+/* Row container for pool statistics */
+.pool-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 0.75rem;
+}
+
+/* Individual stat block: stacked value + label */
+.pool-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.pool-stat .value {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 1.15rem;
+    line-height: 1;
+}
+
+.pool-stat .label {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* --- Group badge pill --- */
+.group-badge {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    background: var(--accent-glow);
+    color: var(--accent);
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.group-badge.journal {
+    background: rgba(234, 179, 8, 0.15);
+    color: var(--warning);
+}
+
+/* --- Segment cards --- */
+.segment-card {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    transition: all var(--transition);
+}
+
+.segment-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.segment-card .segment-card-header,
+.segment-card .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.segment-card .segment-description {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    margin-top: 0.35rem;
+}
+
+/* --- Header actions container (right-aligned action group) --- */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-left: auto;
+}
+
+.page-header .header-actions {
+    flex-wrap: wrap;
+}
+
+/* --- Control page grid & cards --- */
+.control-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.control-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    text-align: center;
+    transition: all var(--transition);
+}
+
+.control-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+/* --- Filters bar (search + selects) --- */
+.filters-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.filters-bar input[type="text"],
+.filters-bar input[type="search"] {
+    flex: 1 1 220px;
+}
+
+.filters-bar select {
+    flex: 0 1 auto;
+    width: auto;
+}
+
+/* --- Responsive table wrapper --- */
+.table-responsive {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    border-radius: var(--radius-sm);
+    -webkit-overflow-scrolling: touch;
 }

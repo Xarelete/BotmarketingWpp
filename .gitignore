@@ -9,4 +9,5 @@ data/engine_state.json
 web/static/uploads/*
 !web/static/uploads/.gitkeep
 .venv/
+.postman/
 
