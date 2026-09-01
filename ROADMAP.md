@@ -6,25 +6,6 @@
 
 ---
 
-## 📌 CHECKPOINT — Frontend & Backend V2 Concluídos (Bolsões / Grupos / Segmentos / Multi-Instância)
-
-> Versão dos assets: `?v=2.6.0`. Arquivos: `web/templates/index.html`, `web/static/js/app.js`, `web/static/css/style.css`, backend `web/app.py`, módulos `core/*`.
-
-### Checklist de Funcionalidades V2
-
-| Módulo / Página | Markup (HTML) | Loader / Nav | Funções JS | Backend (app.py / core) | CSS dedicado | **Status** |
-|-----------------|:-------------:|:------------:|:----------:|:-----------------------:|:------------:|:----------:|
-| Seleção de Número (Instância) | ✅ | ✅ | ✅ | ✅ | ✅ | **COMPLETO** |
-| Bolsões (Pools) | ✅ | ✅ | ✅ | ✅ | ✅ | **COMPLETO** |
-| Grupos (WhatsApp / Jornal) | ✅ | ✅ | ✅ | ✅ | ✅ | **COMPLETO** |
-| Segmentos | ✅ | ✅ | ✅ | ✅ | ✅ | **COMPLETO** |
-| Disparo Paralelo (Broadcast2) | ✅ | ✅ | ✅ | ✅ | ✅ | **COMPLETO** |
-| Migração Supabase V2 | — | — | — | ✅ (`supabase_migration_v2.sql`) | — | **COMPLETO** |
-
----
-
----
-
 ## 1. Visão Geral do Projeto
 
 **Bot Remarketing IMOB** é um sistema de **remarketing imobiliário via WhatsApp** (Evolution API) para corretores. Reativa leads "frios" com um **funil inteligente de mensagens** ao longo de dias (D1, D2, D3, D5, D7, D14, D30 — customizável por campanha), com **motor anti-bloqueio** (janela de horário comercial, intervalos aleatórios, rajadas naturais de 1–3 mensagens, hash anti-repetição por lead).
@@ -123,8 +104,9 @@ Legenda: ✅ concluído · 🚧 em andamento · ⬜ pendente
 - [x] Nova página **Bolsões** na navegação (consumir `/api/pools` com listagem, criação, edição e exclusão)
 - [x] Nova página **Grupos / Jornal da Construtora** (consumir `/api/groups` com sync, filtro de jornal, toggle e vínculo a bolsão)
 - [x] Nova página **Segmentos** (consumir `/api/segments` com criação, listagem, visualização/remoção de membros)
-- [x] Backend de disparo paralelo por número (`/api/broadcast2/*`) integrado com rotas e anti-ban
 - [x] Atualizar navegação do `index.html` e a versão dos assets (`?v=2.6.0`)
+- [x] ✅ Migrar o disparo da UI de `/api/broadcast/*` para `/api/broadcast2/*` (paralelo por número)
+- [x] ✅ Tela de configurações por instância (`/api/instance/settings`)
 
 ### Etapa 5 — Documentação & Testes da API (opcional, futuro) ⬜
 - [ ] Coleção de testes da API REST do Flask (pasta `postman/` hoje vazia) — portável/exportável, sem travar em conta específica
@@ -152,7 +134,7 @@ Legenda: ✅ concluído · 🚧 em andamento · ⬜ pendente
 2. Rodar o schema no Supabase: `supabase_setup.sql` e depois `supabase_migration_v2.sql`.
 3. Instalar dependências: `pip install -r requirements.txt`.
 4. Subir localmente: `python main.py`.
-5. Continuar pela **Etapa 4** (integração do frontend com a V2) — é aqui que o projeto parou.
+5. **Etapa 4 concluída ✅** — Próximo passo: **Etapa 5** — Documentação & Testes da API (coleção Postman, environment de exemplo e testes automatizados das rotas principais).
 
 ---
 *Mantenha este arquivo atualizado ao final de cada sessão de trabalho, marcando os checkboxes e ajustando "Última atualização".*

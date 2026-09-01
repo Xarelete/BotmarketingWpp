@@ -349,6 +349,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
             pools: loadPools,
             groups: loadGroups,
             segments: loadSegments,
+            settings: loadInstanceSettings,
         };
         if (loaders[page]) loaders[page]();
     });
@@ -798,10 +799,10 @@ async function confirmAndStartBroadcast() {
     }
 
     try {
-        const selectedInstance = document.getElementById('bc-instance-select')?.value || null;
-        const resp = await api('/api/broadcast/start', {
+        const resp = await api('/api/broadcast2/start', {
             method: 'POST',
             body: {
+                kind: 'leads',
                 lead_ids: Array.from(selectedLeadIds),
                 message_template: text,
                 image_url: imageUrl,
@@ -809,7 +810,6 @@ async function confirmAndStartBroadcast() {
                 max_delay: maxDelay,
                 vary_text: varyText,
                 vary_synonyms: varySynonyms,
-                instance: selectedInstance,
             }
         });
 
@@ -828,7 +828,7 @@ function startBroadcastPolling() {
 
     broadcastPollingInterval = setInterval(async () => {
         try {
-            const status = await api('/api/broadcast/status');
+            const status = await api('/api/broadcast2/status');
             updateBroadcastProgressUI(status);
 
             if (!status.is_running) {
@@ -878,7 +878,7 @@ function updateBroadcastProgressUI(status) {
 
 async function checkActiveBroadcast() {
     try {
-        const status = await api('/api/broadcast/status');
+        const status = await api('/api/broadcast2/status');
         if (status.is_running) {
             startBroadcastPolling();
         }
@@ -888,7 +888,7 @@ async function checkActiveBroadcast() {
 async function cancelActiveBroadcast() {
     if (!confirm('Deseja realmente interromper a fila de envios?')) return;
     try {
-        await api('/api/broadcast/cancel', { method: 'POST' });
+        await api('/api/broadcast2/cancel', { method: 'POST' });
         toast('Solicitação de cancelamento enviada!', 'info');
     } catch (err) {
         toast(err.message, 'error');
@@ -1947,6 +1947,96 @@ async function deleteSegment(id, name) {
         toast('Segmento excluído', 'info');
         loadSegments();
     } catch (err) { toast(err.message, 'error'); }
+}
+
+// ═══ CONFIGURAÇÕES DA INSTÂNCIA ═══
+
+async function loadInstanceSettings() {
+  const container = document.getElementById('settings-container');
+  if (!container) return;
+  container.innerHTML = '<p class="text-muted">Carregando configurações...</p>';
+  try {
+    const data = await api('/api/instance/settings');
+    container.innerHTML = `
+      <div class="card" style="max-width:520px">
+        <h3 style="margin-bottom:1.25rem">⚙️ Configurações da Instância</h3>
+        <div class="form-group">
+          <label>Nome de exibição</label>
+          <input type="text" id="settings-display-name" class="form-control" value="${data.display_name || ''}" placeholder="Ex: Corretor João">
+        </div>
+        <div class="form-group">
+          <label>Limite diário de disparos</label>
+          <input type="number" id="settings-daily-limit" class="form-control" value="${data.daily_limit ?? 40}" min="1" max="500">
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem">
+          <label class="checkbox-container" style="margin:0">
+            <input type="checkbox" id="settings-warmup" ${data.warmup_enabled ? 'checked' : ''}>
+            <span class="checkmark"></span>
+          </label>
+          <span style="font-size:.9rem">Ativar modo warmup (aquecimento gradual)</span>
+        </div>
+        <div style="display:flex;gap:.75rem;margin-top:1.5rem;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="saveInstanceSettings()">💾 Salvar configurações</button>
+          <button class="btn btn-secondary" onclick="openChangePasswordModal()">🔑 Alterar senha</button>
+        </div>
+        <div id="settings-feedback" style="margin-top:.75rem"></div>
+      </div>
+    `;
+  } catch (err) {
+    container.innerHTML = `<p class="text-danger">Erro ao carregar configurações: ${err.message}</p>`;
+  }
+}
+
+async function saveInstanceSettings() {
+  const display_name = document.getElementById('settings-display-name')?.value.trim() || null;
+  const daily_limit = parseInt(document.getElementById('settings-daily-limit')?.value) || null;
+  const warmup_enabled = document.getElementById('settings-warmup')?.checked ?? null;
+  const feedback = document.getElementById('settings-feedback');
+  try {
+    await api('/api/instance/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ display_name, daily_limit, warmup_enabled })
+    });
+    toast('Configurações salvas com sucesso!', 'success');
+    if (feedback) feedback.innerHTML = '<span class="text-success text-sm">✔ Salvo</span>';
+    setTimeout(() => { if (feedback) feedback.innerHTML = ''; }, 3000);
+    if (display_name) setActiveInstanceBadge(display_name);
+  } catch (err) {
+    toast('Erro ao salvar: ' + err.message, 'error');
+  }
+}
+
+function openChangePasswordModal() {
+  openModal('🔑 Alterar Senha da Instância', `
+    <div class="form-group">
+      <label>Nova senha (mínimo 3 caracteres)</label>
+      <input type="password" id="new-instance-password" class="form-control" placeholder="Nova senha" autocomplete="new-password">
+    </div>
+    <div class="form-group">
+      <label>Confirmar nova senha</label>
+      <input type="password" id="confirm-instance-password" class="form-control" placeholder="Confirmar senha">
+    </div>
+    <div id="password-change-error" class="text-danger text-sm" style="min-height:1.2rem"></div>
+    <div style="display:flex;gap:.75rem;margin-top:1rem">
+      <button class="btn btn-primary" onclick="submitChangePassword()">Confirmar</button>
+      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+    </div>
+  `);
+}
+
+async function submitChangePassword() {
+  const newPwd = document.getElementById('new-instance-password')?.value || '';
+  const confirmPwd = document.getElementById('confirm-instance-password')?.value || '';
+  const errEl = document.getElementById('password-change-error');
+  if (newPwd.length < 3) { if (errEl) errEl.textContent = 'A senha deve ter pelo menos 3 caracteres.'; return; }
+  if (newPwd !== confirmPwd) { if (errEl) errEl.textContent = 'As senhas não coincidem.'; return; }
+  try {
+    await api('/api/instance/password', { method: 'POST', body: JSON.stringify({ new_password: newPwd }) });
+    toast('Senha alterada com sucesso!', 'success');
+    closeModal();
+  } catch (err) {
+    if (errEl) errEl.textContent = err.message;
+  }
 }
 
 // ═══════════════════════════════════════════

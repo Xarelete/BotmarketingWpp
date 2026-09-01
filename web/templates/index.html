@@ -7,7 +7,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.6.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2.7.0">
 </head>
 <body>
     <!-- ═══════════════════════════════════════ -->
@@ -102,6 +102,10 @@
                 <a href="#" class="nav-item" data-page="log">
                     <span class="nav-icon">📋</span>
                     <span class="nav-label">Histórico de Envios</span>
+                </a>
+                <a href="#" class="nav-item" data-page="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-label">Configurações</span>
                 </a>
             </nav>
             <div class="sidebar-footer">
@@ -478,6 +482,19 @@
                 </div>
                 <div id="segments-list"></div>
             </section>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!-- CONFIGURAÇÕES                          -->
+            <!-- ═══════════════════════════════════════ -->
+            <section id="page-settings" class="page">
+                <div class="page-header">
+                    <div>
+                        <h1>Configurações</h1>
+                        <p class="page-subtitle">Gerencie as configurações da sua instância (número)</p>
+                    </div>
+                </div>
+                <div id="settings-container"></div>
+            </section>
         </main>
     </div>
 
@@ -497,6 +514,6 @@
     <!-- TOAST -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}?v=2.6.0" defer></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=2.7.0" defer></script>
 </body>
 </html>
