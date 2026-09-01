@@ -128,9 +128,30 @@ def get_pool_stats(pool_id: str) -> Dict[str, Any]:
         "pool_id", pool_id
     ).eq("status", "active").gt("remarketing_day", 0).execute()
 
+    converted = sb.table("leads").select("id", count="exact").eq("pool_id", pool_id).eq("status", "converted").execute()
+
     return {
         "pool_id": pool_id,
         "total": total.count or 0,
         "active": active.count or 0,
         "in_funnel": in_funnel.count or 0,
+        "converted": converted.count or 0,
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# ASSOCIAÇÃO DE LEADS
+# ═══════════════════════════════════════════════════════════════════════
+
+def add_leads_to_pool(pool_id, lead_ids):
+    """Associate existing leads to a pool by setting their pool_id."""
+    if not lead_ids:
+        return 0
+    sb = get_supabase()
+    res = sb.table("leads").update({"pool_id": pool_id}).in_("id", lead_ids).execute()
+    return len(res.data) if getattr(res, "data", None) else 0
+
+def add_number_to_pool(pool_id, instance_name, phone, name="", tags=None):
+    """Create a new lead already tied to this pool."""
+    from core.lead_manager import add_lead
+    return add_lead(phone=phone, name=name, tags=tags or [], added_by="web_admin", instance_name=instance_name, pool_id=pool_id)

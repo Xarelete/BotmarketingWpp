@@ -116,6 +116,7 @@ def create_app() -> Flask:
         name = data.get("name", "").strip()
         tags = data.get("tags", [])
         notes = data.get("notes", "")
+        pool_id = data.get("pool_id")
 
         if not phone:
             return jsonify({"error": "Telefone é obrigatório"}), 400
@@ -123,7 +124,7 @@ def create_app() -> Flask:
         if isinstance(tags, str):
             tags = [t.strip() for t in tags.split(",") if t.strip()]
 
-        result = add_lead(phone=phone, name=name, tags=tags, added_by="web_admin", notes=notes)
+        result = add_lead(phone=phone, name=name, tags=tags, added_by="web_admin", notes=notes, pool_id=pool_id)
         if result:
             return jsonify({"ok": True, "lead": result})
         return jsonify({"error": "Lead já existe (telefone duplicado)"}), 409
@@ -785,6 +786,37 @@ def create_app() -> Flask:
     def api_pools_stats(pool_id):
         from core.pool_manager import get_pool_stats
         return jsonify(get_pool_stats(pool_id))
+
+    @app.route("/api/pools/<pool_id>/leads", methods=["POST"])
+    @auth_required
+    @instance_required
+    def api_pools_add_leads(pool_id):
+        from core.pool_manager import add_leads_to_pool
+        data = request.get_json(silent=True) or {}
+        lead_ids = data.get("lead_ids", [])
+        if not lead_ids:
+            return jsonify({"error": "Nenhum lead selecionado"}), 400
+        count = add_leads_to_pool(pool_id, lead_ids)
+        return jsonify({"ok": True, "count": count})
+
+    @app.route("/api/pools/<pool_id>/add-number", methods=["POST"])
+    @auth_required
+    @instance_required
+    def api_pools_add_number(pool_id):
+        from core.pool_manager import add_number_to_pool
+        data = request.get_json(silent=True) or {}
+        phone = data.get("phone", "").strip()
+        name = data.get("name", "").strip()
+        tags = data.get("tags", [])
+        if not phone:
+            return jsonify({"error": "Telefone é obrigatório"}), 400
+        if isinstance(tags, str):
+            tags = [t.strip() for t in tags.split(",") if t.strip()]
+        instance_name = get_session_instance()
+        result = add_number_to_pool(pool_id, instance_name, phone, name, tags)
+        if result:
+            return jsonify({"ok": True, "lead": result}), 201
+        return jsonify({"error": "Lead já existe (telefone duplicado)"}), 409
 
     # ═══════════════════════════════════════════════════════════════
     # GRUPOS DE WHATSAPP (JORNAL DA CONSTRUTORA)
